@@ -1,0 +1,9 @@
+# Ignorar a pasta webhook
+/webhook/
+
+# Ignorar o arquivo .env
+.env
+
+# Opcional: ignorar arquivos de backup ou temporários
+*.log
+*.tmp
