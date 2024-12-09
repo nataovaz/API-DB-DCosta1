@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -9,12 +10,12 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Importar rotas
-const professorRoutes = require('./routes/professor');
-const turmaRoutes = require('./routes/turma');
-const alunoRoutes = require('./routes/aluno');
-const habilidadeRoutes = require('./routes/habilidade');
-const notaRoutes = require('./routes/nota');
-const materiaRoutes = require('./routes/materia');
+const professorRoutes = require('../routes/professor');
+const turmaRoutes = require('../routes/turma');
+const alunoRoutes = require('../routes/aluno');
+const habilidadeRoutes = require('../routes/habilidade');
+const notaRoutes = require('../routes/nota');
+const materiaRoutes = require('../routes/materia');
 
 
 
