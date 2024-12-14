@@ -3,11 +3,21 @@ const router = express.Router();
 const notaController = require('../controllers/notaController');
 
 // Rotas relacionadas às notas
-router.get('/media/:idTurma/:idBimestre', notaController.getMediaNotasByTurmaAndBimestre);
 router.post('/', notaController.createNota);
-router.put('/:idNota', notaController.updateNota);
-router.delete('/:idNota', notaController.deleteNota);
-router.get('/chartdata/:idTurma/:idBimestre', notaController.getChartDataByTurmaAndBimestre);
+router.get('/media/:idTurma/:idBimestre', notaController.getMediaNotasByTurmaAndBimestre);
 router.get('/total/:idTurma/:idBimestre', notaController.getTotalNotasByTurmaAndBimestre);
+router.put('/:idAluno', notaController.updateNota);
+router.get('/:idAluno', notaController.getNotasByAluno);
+router.get('/chartdata/:idTurma/:idBimestre', notaController.getChartDataByTurmaAndBimestre);
+
+
+// Buscar nota do aluno para uma matéria, bimestre e turma específicos
+router.get('/:idAluno/:idMateria/:idBimestre/:idTurma', notaController.getNotaByAlunoAndMateria);
+
+// Criar ou atualizar nota do aluno
+router.post('/:idAluno/:idMateria/:idBimestre/:idTurma', notaController.createOrUpdateNota);
+
+// Buscar todas as notas de um aluno em uma turma e bimestre específicos
+router.get('/aluno/:idAluno/:idBimestre/:idTurma', notaController.getNotasByAluno);
 
 module.exports = router;

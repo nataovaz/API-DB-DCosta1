@@ -192,21 +192,31 @@ exports.getAlunosByBimestreAndProfessor = async (req, res) => {
  };
  
 
- exports.getAlunoByIdTurma = async (req, res) => {
+// Obter alunos da turma
+exports.getAlunoByIdTurma = async (req, res) => {
     const { idTurma } = req.params;
+
     const query = `
-        SELECT *
+        SELECT a.idAluno, a.nome, a.dataNasc, t.nomeSerie
         FROM Alunos a
-        WHERE a.idTurma = ?`;
+        JOIN Turmas t ON a.idTurma = t.idTurma
+        WHERE t.idTurma = ?;
+    `;
+
     try {
         const [results] = await db.query(query, [idTurma]);
+        
         if (results.length === 0) {
-            return res.status(404).json({ error: 'Aluno desta turma não encontrado' });
+            return res.status(404).json({ error: 'Nenhum aluno encontrado para a turma especificada.' });
         }
-        // Encapsular o array em um objeto
-        res.status(200).json({ alunos: results });
+
+        // Retornando os alunos junto com a turma selecionada
+        res.status(200).json({ 
+            turma: results[0].nomeSerie, 
+            alunos: results 
+        });
     } catch (err) {
-        console.error('Erro ao obter aluno da turma:', err);
-        res.status(500).json({ error: 'Erro ao obter aluno da turma:', details: err });
+        console.error('Erro ao obter alunos da turma:', err);
+        res.status(500).json({ error: 'Erro ao obter alunos da turma.', details: err });
     }
 };

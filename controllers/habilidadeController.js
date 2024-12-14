@@ -104,18 +104,18 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
 
     try {
         const [rows] = await db.query(`
-            SELECT h.codigo, COUNT(dh.idHabilidade) AS total
+            SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
             FROM DesempenhoHabilidades dh
             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
             JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
             JOIN Alunos a ON ba.idAluno = a.idAluno
             WHERE a.idTurma = ? AND ba.idBimestre = ?
-            GROUP BY h.codigo
+            GROUP BY h.nome
             ORDER BY total DESC
         `, [idTurma, idBimestre]);
 
-        const maisAcertada = rows.length > 0 ? rows[0].codigo : 'N/A';
-        const menosAcertada = rows.length > 0 ? rows[rows.length - 1].codigo : 'N/A';
+        const maisAcertada = rows.length > 0 ? rows[0].habilidade : 'N/A';
+        const menosAcertada = rows.length > 0 ? rows[rows.length - 1].habilidade : 'N/A';
 
         res.json({ maisAcertada, menosAcertada });
     } catch (error) {
@@ -126,6 +126,7 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
+
 
 
 exports.getHabilidadesStatsByAlunoAndBimestre = async (req, res) => {
