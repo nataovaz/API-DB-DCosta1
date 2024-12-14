@@ -152,26 +152,31 @@ exports.createOrUpdateNota = async (req, res) => {
     const { idAluno, idMateria, idBimestre, idTurma } = req.params;
     const { nota } = req.body;
 
+    if (!nota) {
+        return res.status(400).json({ error: 'O campo "nota" é obrigatório' });
+    }
+
     try {
-        // Primeiro verifica se já existe uma nota para o aluno, matéria, bimestre e turma
+        // Verifica se já existe um registro para o aluno, matéria, bimestre e turma
         const [existing] = await db.query(`
-            SELECT ba.nota
+            SELECT ba.idBimestre_Aluno
             FROM Alunos a
             JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Materias m ON ba.idMateria = m.idMateria
-            WHERE a.idAluno = ? AND m.idMateria = ? AND ba.idBimestre = ? AND a.idTurma = ?;
-        `, [idAluno, idMateria, idBimestre, idTurma]);
+            JOIN Materias m ON m.idMateria = ?
+            WHERE a.idAluno = ? AND ba.idBimestre = ? AND a.idTurma = ?;
+        `, [idMateria, idAluno, idBimestre, idTurma]);
 
         if (existing.length > 0) {
             // Atualiza a nota caso já exista
             await db.query(`
                 UPDATE Bimestre_Alunos
                 SET nota = ?
-                WHERE idAluno = ? AND idMateria = ? AND idBimestre = ?;
-            `, [nota, idAluno, idMateria, idBimestre]);
+                WHERE idAluno = ? AND idBimestre = ? AND idMateria = ?;
+            `, [nota, idAluno, idBimestre, idMateria]);
+
             return res.status(200).send('Nota atualizada com sucesso');
         } else {
-            // Caso não exista, cria a nota
+            // Cria a nota caso não exista
             await db.query(`
                 INSERT INTO Bimestre_Alunos (idAluno, idMateria, idBimestre, nota)
                 VALUES (?, ?, ?, ?);
@@ -183,10 +188,13 @@ exports.createOrUpdateNota = async (req, res) => {
         console.error('Erro ao criar ou atualizar nota:', error);
         res.status(500).json({
             error: 'Erro ao criar ou atualizar nota',
-            details: error
+            details: error.message
         });
     }
 };
+
+
+
 
 
 // Buscar todas as notas de um aluno em uma turma e bimestre específicos
