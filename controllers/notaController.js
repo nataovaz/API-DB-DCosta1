@@ -147,7 +147,7 @@ exports.getNotaByAlunoAndMateria = async (req, res) => {
     }
 };
 
-// Criar ou atualizar nota (caso exista) para o aluno em uma matéria, bimestre e turma específicos
+// Criar ou atualizar nota
 exports.createOrUpdateNota = async (req, res) => {
     const { idAluno, idMateria, idBimestre, idTurma } = req.params;
     const { nota } = req.body;
@@ -157,30 +157,46 @@ exports.createOrUpdateNota = async (req, res) => {
     }
 
     try {
-        // Verifica se já existe um registro para o aluno, matéria, bimestre e turma
+        // Verifica se a turma e a matéria correspondem
+        const [materiaCheck] = await db.query(`
+            SELECT idMateria
+            FROM Materias
+            WHERE idMateria = ? AND idTurma = ?;
+        `, [idMateria, idTurma]);
+
+        if (materiaCheck.length === 0) {
+            return res.status(404).json({ error: 'Matéria não encontrada para esta turma' });
+        }
+
+        // Verifica se já existe um registro para o aluno, bimestre e turma
         const [existing] = await db.query(`
-            SELECT ba.idBimestre_Aluno
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Materias m ON m.idMateria = ?
-            WHERE a.idAluno = ? AND ba.idBimestre = ? AND a.idTurma = ?;
-        `, [idMateria, idAluno, idBimestre, idTurma]);
+            SELECT idAluno, idBimestre
+            FROM Bimestre_Alunos
+            WHERE idAluno = ? AND idBimestre = ?;
+        `, [idAluno, idBimestre]);
 
         if (existing.length > 0) {
-            // Atualiza a nota caso já exista
+            // Atualiza a nota
             await db.query(`
-                UPDATE Bimestre_Alunos
+                UPDATE Alunos
                 SET nota = ?
-                WHERE idAluno = ? AND idBimestre = ? AND idMateria = ?;
-            `, [nota, idAluno, idBimestre, idMateria]);
+                WHERE idAluno = ? AND idTurma = ?;
+            `, [nota, idAluno, idTurma]);
 
             return res.status(200).send('Nota atualizada com sucesso');
         } else {
-            // Cria a nota caso não exista
+            // Insere a nota para o aluno no bimestre
             await db.query(`
-                INSERT INTO Bimestre_Alunos (idAluno, idMateria, idBimestre, nota)
-                VALUES (?, ?, ?, ?);
-            `, [idAluno, idMateria, idBimestre, nota]);
+                INSERT INTO Bimestre_Alunos (idBimestre, idAluno)
+                VALUES (?, ?);
+            `, [idBimestre, idAluno]);
+
+            // Atualiza a nota na tabela de alunos
+            await db.query(`
+                UPDATE Alunos
+                SET nota = ?
+                WHERE idAluno = ? AND idTurma = ?;
+            `, [nota, idAluno, idTurma]);
 
             return res.status(201).send('Nota criada com sucesso');
         }
