@@ -155,8 +155,9 @@ exports.createOrUpdateNota = async (req, res) => {
     const { idAluno, idMateria, idBimestre, idTurma } = req.params;
     const { nota } = req.body;
 
-    if (!nota) {
-        return res.status(400).json({ error: 'O campo "nota" é obrigatório' });
+    // Verifica se o campo "nota" está presente e é um número válido
+    if (nota === undefined || nota === null || isNaN(parseFloat(nota))) {
+        return res.status(400).json({ error: 'O campo "nota" é obrigatório e deve ser um número válido' });
     }
 
     try {
@@ -211,6 +212,7 @@ exports.createOrUpdateNota = async (req, res) => {
         });
     }
 };
+
 
 
 
