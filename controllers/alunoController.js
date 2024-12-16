@@ -57,31 +57,29 @@ exports.updateAluno = async (req, res) => {
 
 
 exports.getAlunosComNotasByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+    const { idTurma, idBimestre } = req.params; // idBimestre não será usado, mas mantido para compatibilidade
 
     try {
         const [rows] = await db.query(`
-            SELECT a.nome, IFNULL(n.nota, 'N/A') AS nota
-            FROM Alunos a
-            LEFT JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno AND ba.idBimestre = ?
-            LEFT JOIN Notas n ON ba.idBimestre_Aluno = n.idBimestre_Aluno
-            LEFT JOIN Avaliacoes av ON n.idAvaliacao = av.idAvaliacao
-            WHERE a.idTurma = ?
-        `, [idBimestre, idTurma]);
+            SELECT nome, COALESCE(nota, 'N/A') AS nota
+            FROM Alunos
+            WHERE idTurma = ?
+        `, [idTurma]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Nenhum aluno encontrado para a turma e bimestre especificados' });
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ error: 'Nenhum aluno encontrado para a turma especificada.' });
         }
 
-        res.json(rows);
+        res.status(200).json(rows);
     } catch (error) {
         console.error('Erro ao buscar alunos com notas:', error);
         res.status(500).json({
             error: 'Erro ao buscar alunos com notas',
-            details: error
+            details: error.message,
         });
     }
 };
+
 
 
 

@@ -6,7 +6,11 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({
+    origin: '*',  // Permite qualquer origem (você pode especificar um domínio específico se necessário)
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Permite esses métodos
+    allowedHeaders: ['Content-Type', 'Authorization'],  // Permite esses cabeçalhos
+}));
 app.use(bodyParser.json());
 
 // Importar rotas

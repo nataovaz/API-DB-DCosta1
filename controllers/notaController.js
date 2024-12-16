@@ -15,26 +15,26 @@ exports.createNota = async (req, res) => {
 
 // Buscar média de notas por turma e bimestre
 exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+    const { idTurma } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT AVG(a.nota) as mediaNota
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            WHERE a.idTurma = ? AND ba.idBimestre = ?;
-        `, [idTurma, idBimestre]);
+            SELECT AVG(nota) AS mediaNota
+            FROM Alunos
+            WHERE idTurma = ? AND nota IS NOT NULL
+        `, [idTurma]);
 
-        const mediaNota = rows.length > 0 ? rows[0].mediaNota : 0;
-        res.json({ mediaNota });
+        const mediaNota = rows[0]?.mediaNota || 0;
+        res.status(200).json({ mediaNota });
     } catch (error) {
-        console.error('Erro ao buscar média de notas:', error);
+        console.error('Erro ao calcular média de notas:', error);
         res.status(500).json({
-            error: 'Erro ao buscar média de notas',
-            details: error
+            error: 'Erro ao calcular média de notas',
+            details: error.message,
         });
     }
 };
+
 
 // Buscar o total de alunos com notas em uma turma e bimestre
 exports.getTotalNotasByTurmaAndBimestre = async (req, res) => {
@@ -89,36 +89,39 @@ exports.getNotasByAluno = async (req, res) => {
     }
 };
 
-// Buscar dados do gráfico por turma e bimestre
 exports.getChartDataByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+    const { idTurma } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT h.codigo, COUNT(dh.idHabilidade) AS total
-            FROM DesempenhoHabilidades dh
-            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-            JOIN Alunos a ON ba.idAluno = a.idAluno
-            WHERE a.idTurma = ? AND ba.idBimestre = ?
-            GROUP BY h.codigo
-            ORDER BY total DESC
-        `, [idTurma, idBimestre]);
+            SELECT 
+                CASE
+                    WHEN nota BETWEEN 0 AND 4.9 THEN '0-4.9'
+                    WHEN nota BETWEEN 5 AND 6.9 THEN '5-6.9'
+                    WHEN nota BETWEEN 7 AND 10 THEN '7-10'
+                    ELSE 'Sem Nota'
+                END AS faixaNota,
+                COUNT(*) AS quantidade
+            FROM Alunos
+            WHERE idTurma = ?
+            GROUP BY faixaNota
+        `, [idTurma]);
 
         const chartData = rows.map(row => ({
-            habilidade: row.codigo,
-            quantidade: row.total
+            faixa: row.faixaNota,
+            quantidade: row.quantidade,
         }));
 
-        res.json({ chartData });
+        res.status(200).json({ chartData });
     } catch (error) {
         console.error('Erro ao buscar dados do gráfico:', error);
         res.status(500).json({
             error: 'Erro ao buscar dados do gráfico',
-            details: error
+            details: error.message,
         });
     }
 };
+
 
 // Buscar nota do aluno para uma matéria, bimestre e turma específicos
 exports.getNotaByAlunoAndMateria = async (req, res) => {
