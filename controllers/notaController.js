@@ -13,27 +13,41 @@ exports.createNota = async (req, res) => {
     }
 };
 
-// Buscar média de notas por turma e bimestre
 exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
-    const { idTurma } = req.params;
+    const { idTurma, idBimestre } = req.params;
 
     try {
+        // Verifica se existem alunos e notas correspondentes à turma e bimestre
         const [rows] = await db.query(`
-            SELECT AVG(nota) AS mediaNota
-            FROM Alunos
-            WHERE idTurma = ? AND nota IS NOT NULL
-        `, [idTurma]);
+            SELECT AVG(a.nota) AS mediaNota
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            JOIN Materias m ON b.idMateria = m.idMateria
+            WHERE m.idTurma = ? AND b.idBimestre = ? AND a.nota IS NOT NULL
+        `, [idTurma, idBimestre]);
 
-        const mediaNota = rows[0]?.mediaNota || 0;
-        res.status(200).json({ mediaNota });
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ error: 'Nenhuma média encontrada para os critérios fornecidos.' });
+        }
+
+        const mediaNota = parseFloat(rows[0].mediaNota) || 0;
+
+        res.status(200).json({
+            mediaNota: mediaNota.toFixed(2), // Retorna com 2 casas decimais
+        });
     } catch (error) {
-        console.error('Erro ao calcular média de notas:', error);
+        console.error('Erro ao calcular média da turma:', error);
         res.status(500).json({
-            error: 'Erro ao calcular média de notas',
+            error: 'Erro interno ao calcular a média da turma',
             details: error.message,
         });
     }
 };
+
+
+
+
 
 
 // Buscar o total de alunos com notas em uma turma e bimestre
@@ -244,3 +258,35 @@ exports.getNotasByAluno = async (req, res) => {
         });
     }
 };
+
+exports.getNotasByTurmaAndBimestre = async (req, res) => {
+    const { idTurma, idBimestre, idMateria } = req.params;
+
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.nome AS nomeAluno, 
+                a.nota 
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            WHERE ba.idBimestre = ? 
+              AND a.idTurma = ? 
+              AND b.idMateria = ?;
+        `, [idBimestre, idTurma, idMateria]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Nenhuma nota encontrada para os critérios fornecidos' });
+        }
+
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar notas por turma e bimestre:', error);
+        res.status(500).json({ 
+            error: 'Erro ao buscar notas por turma e bimestre', 
+            details: error.message 
+        });
+    }
+};
+
+

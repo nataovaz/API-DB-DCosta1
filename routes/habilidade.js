@@ -3,7 +3,7 @@ const router = express.Router();
 const habilidadeController = require('../controllers/habilidadeController');
 
 // Rotas relacionadas às habilidades
-router.get('/stats/:idTurma/:idBimestre', habilidadeController.getHabilidadesStatsByTurmaAndBimestre);
+router.get('/stats/:idTurma/:idBimestre/:idMateria', habilidadeController.getHabilidadesStatsByTurmaAndBimestre);
 router.get('/top5/:idTurma/:idBimestre', habilidadeController.getTop5HabilidadesByTurmaAndBimestre);
 router.post('/', habilidadeController.createHabilidade);
 router.post('/create-if-not-exists', habilidadeController.createHabilidadeIfNotExists);

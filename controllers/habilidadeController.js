@@ -100,7 +100,7 @@ exports.getHabilidadesByAluno = async (req, res) => {
 
 
 exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+    const { idTurma, idBimestre, idMateria } = req.params;
 
     try {
         const [rows] = await db.query(`
@@ -109,23 +109,26 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
             JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
             JOIN Alunos a ON ba.idAluno = a.idAluno
-            WHERE a.idTurma = ? AND ba.idBimestre = ?
+            WHERE a.idTurma = ? AND ba.idBimestre = ? AND h.idMateria = ?
             GROUP BY h.nome
             ORDER BY total DESC
-        `, [idTurma, idBimestre]);
+        `, [idTurma, idBimestre, idMateria]);
 
-        const maisAcertada = rows.length > 0 ? rows[0].habilidade : 'N/A';
-        const menosAcertada = rows.length > 0 ? rows[rows.length - 1].habilidade : 'N/A';
+        if (!rows.length) {
+            return res.status(404).json({ message: 'Nenhuma habilidade encontrada para os critérios fornecidos.' });
+        }
 
-        res.json({ maisAcertada, menosAcertada });
+        const maisAcertada = rows[0].habilidade || 'N/A';
+        const menosAcertada = rows[rows.length - 1].habilidade || 'N/A';
+
+        res.status(200).json({ maisAcertada, menosAcertada });
     } catch (error) {
         console.error('Erro ao buscar estatísticas de habilidades:', error);
-        res.status(500).json({
-            error: 'Erro ao buscar estatísticas de habilidades',
-            details: error
-        });
+        res.status(500).json({ error: 'Erro interno ao buscar estatísticas de habilidades', details: error.message });
     }
 };
+
+
 
 
 
@@ -136,7 +139,7 @@ exports.getHabilidadesStatsByAlunoAndBimestre = async (req, res) => {
         const [results] = await db.query(`
             SELECT 
                 a.nome AS alunoNome,
-                h.codigo AS habilidadeCodigo,
+                h.nome AS habilidadeCodigo,
                 COUNT(dh.idHabilidade) AS totalAcertos
             FROM DesempenhoHabilidades dh
             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
@@ -189,13 +192,13 @@ exports.getTop5ErrosByTurmaAndBimestre = async (req, res) => {
 
     try {
         const [rows] = await db.query(`
-            SELECT h.codigo, COUNT(dh.idHabilidade) AS total
+            SELECT h.nome, COUNT(dh.idHabilidade) AS total
             FROM DesempenhoHabilidades dh
             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
             JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
             WHERE ba.idBimestre = ? 
               AND ba.idAluno IN (SELECT idAluno FROM Alunos WHERE idTurma = ?)
-            GROUP BY h.codigo
+            GROUP BY h.nome
             ORDER BY total ASC
             LIMIT 5
         `, [idBimestre, idTurma]);
@@ -213,23 +216,28 @@ exports.getTop5HabilidadesByTurmaAndBimestre = async (req, res) => {
 
     try {
         const [rows] = await db.query(`
-            SELECT h.codigo, COUNT(dh.idHabilidade) AS total
+            SELECT h.nome, COUNT(dh.idHabilidade) AS total
             FROM DesempenhoHabilidades dh
             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
             JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
             WHERE ba.idBimestre = ? 
               AND ba.idAluno IN (SELECT idAluno FROM Alunos WHERE idTurma = ?)
-            GROUP BY h.codigo
+            GROUP BY h.nome
             ORDER BY total DESC
             LIMIT 5
         `, [idBimestre, idTurma]);
 
-        res.json({ chartData: rows });
+        if (!rows.length) {
+            return res.status(404).json({ message: 'Nenhum dado disponível para o top 5 habilidades.' });
+        }
+
+        res.status(200).json({ chartData: rows });
     } catch (error) {
         console.error('Erro ao buscar top 5 habilidades:', error);
-        res.status(500).json({ error: 'Erro ao buscar top 5 habilidades' });
+        res.status(500).json({ error: 'Erro interno ao buscar top 5 habilidades', details: error.message });
     }
 };
+
 
 
 
