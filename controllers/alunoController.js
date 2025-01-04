@@ -55,19 +55,24 @@ exports.updateAluno = async (req, res) => {
     }
 };
 
-
+// Listar todos os alunos com notas em uma turma/bimestre
 exports.getAlunosComNotasByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params; // idBimestre não será usado, mas mantido para compatibilidade
+    const { idTurma, idBimestre } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT nome, COALESCE(nota, 'N/A') AS nota
-            FROM Alunos
-            WHERE idTurma = ?
-        `, [idTurma]);
+            SELECT 
+                a.nome,
+                COALESCE(nba.nota, 'N/A') AS nota
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            LEFT JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+        `, [idTurma, idBimestre]);
 
         if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: 'Nenhum aluno encontrado para a turma especificada.' });
+            return res.status(404).json({ error: 'Nenhum aluno encontrado para a turma/bimestre especificados.' });
         }
 
         res.status(200).json(rows);
@@ -79,14 +84,6 @@ exports.getAlunosComNotasByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
-
-
-
-
-
-
-
-
 
 // Deletar aluno
 exports.deleteAluno = async (req, res) => {
@@ -105,10 +102,12 @@ exports.deleteAluno = async (req, res) => {
 exports.getNotaByAlunoIdAndBimestre = async (req, res) => {
     const { idAluno, idBimestre } = req.params;
     const query = `
-        SELECT n.nota 
-        FROM Notas n
-        JOIN Bimestre_Alunos ba ON n.idBimestre_Aluno = ba.idBimestre_Aluno
-        WHERE ba.idAluno = ? AND ba.idBimestre = ?`;
+        SELECT nba.nota 
+        FROM Notas_Bimestre_Aluno nba
+        JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
+        WHERE ba.idAluno = ?
+          AND ba.idBimestre = ?
+    `;
     try {
         const [results] = await db.query(query, [idAluno, idBimestre]);
         if (results.length === 0) {
@@ -129,7 +128,9 @@ exports.getHabilidadeByAlunoIdAndBimestre = async (req, res) => {
         FROM DesempenhoHabilidades dh
         JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
         JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-        WHERE ba.idAluno = ? AND ba.idBimestre = ?`;
+        WHERE ba.idAluno = ?
+          AND ba.idBimestre = ?
+    `;
     try {
         const [results] = await db.query(query, [idAluno, idBimestre]);
         if (results.length === 0) {
@@ -142,53 +143,32 @@ exports.getHabilidadeByAlunoIdAndBimestre = async (req, res) => {
     }
 };
 
-
 // Listar todos os alunos de um determinado bimestre e professor
 exports.getAlunosByBimestreAndProfessor = async (req, res) => {
-     const { idBimestre, idProfessor } = req.params;
-     const query = `
-         SELECT a.idAluno, a.nome, a.dataNasc
-         FROM Alunos a
-         JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-         JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-         JOIN Materias m ON b.idMateria = m.idMateria
-         JOIN Turmas t ON m.idTurma = t.idTurma
-         WHERE ba.idBimestre = ? AND t.idProfessor = ?`;
-     try {
-         const [results] = await db.query(query, [idBimestre, idProfessor]);
-         if (results.length === 0) {
-             return res.status(404).json({ error: 'Nenhum aluno encontrado para o bimestre e professor especificados' });
-         }
-         res.status(200).json(results);
-     } catch (err) {
-         console.error('Erro ao listar alunos:', err);
-         res.status(500).json({ error: 'Erro ao listar alunos', details: err });
-     }
- };
- 
-// Listar todos os alunos de um determinado bimestre e professor
-exports.getAlunosByBimestreAndProfessor = async (req, res) => {
-     const { idBimestre, idProfessor } = req.params;
-     const query = `
-         SELECT a.idAluno, a.nome, a.dataNasc
-         FROM Alunos a
-         JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-         JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-         JOIN Materias m ON b.idMateria = m.idMateria
-         JOIN Turmas t ON m.idTurma = t.idTurma
-         WHERE ba.idBimestre = ? AND t.idProfessor = ?`;
-     try {
-         const [results] = await db.query(query, [idBimestre, idProfessor]);
-         if (results.length === 0) {
-             return res.status(404).json({ error: 'Nenhum aluno encontrado para o bimestre e professor especificados' });
-         }
-         res.status(200).json(results);
-     } catch (err) {
-         console.error('Erro ao listar alunos:', err);
-         res.status(500).json({ error: 'Erro ao listar alunos', details: err });
-     }
- };
- 
+    const { idBimestre, idProfessor } = req.params;
+    const query = `
+        SELECT a.idAluno, a.nome, a.dataNasc
+        FROM Alunos a
+        JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+        JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+        JOIN Materias m ON b.idMateria = m.idMateria
+        JOIN Turmas t ON m.idTurma = t.idTurma
+        WHERE ba.idBimestre = ?
+          AND t.idProfessor = ?
+    `;
+    try {
+        const [results] = await db.query(query, [idBimestre, idProfessor]);
+        if (results.length === 0) {
+            return res.status(404).json({
+                error: 'Nenhum aluno encontrado para o bimestre e professor especificados'
+            });
+        }
+        res.status(200).json(results);
+    } catch (err) {
+        console.error('Erro ao listar alunos:', err);
+        res.status(500).json({ error: 'Erro ao listar alunos', details: err });
+    }
+};
 
 // Obter alunos da turma
 exports.getAlunoByIdTurma = async (req, res) => {

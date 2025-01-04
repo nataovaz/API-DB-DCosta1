@@ -1,40 +1,156 @@
 const db = require('../config/db');
 
-// Criar nova nota (agora vinculada diretamente ao aluno)
+/**
+ * Criar nova nota, agora exigindo `:idAluno` e `:idBimestre` na rota.
+ */
 exports.createNota = async (req, res) => {
-    const { idAluno, nota } = req.body;
-    const query = 'UPDATE Alunos SET nota = ? WHERE idAluno = ?';
     try {
-        await db.query(query, [nota, idAluno]);
-        res.status(201).send('Nota atribuída ao aluno com sucesso');
+        const { idAluno, idBimestre } = req.params;
+        const { nota } = req.body;
+
+        // Verifica se 'nota' é válido
+        if (nota === undefined || isNaN(parseFloat(nota))) {
+            return res.status(400).json({
+                error: 'O campo "nota" é obrigatório e deve ser um número válido'
+            });
+        }
+
+        // 1) Encontra ou cria o registro em Bimestre_Alunos (caso não exista)
+        const [baExisting] = await db.query(`
+            SELECT idBimestre_Aluno
+            FROM Bimestre_Alunos
+            WHERE idAluno = ?
+              AND idBimestre = ?
+        `, [idAluno, idBimestre]);
+
+        let idBimestre_Aluno;
+        if (baExisting.length > 0) {
+            idBimestre_Aluno = baExisting[0].idBimestre_Aluno;
+        } else {
+            // Se não existe, insere
+            const [baResult] = await db.query(`
+                INSERT INTO Bimestre_Alunos (idAluno, idBimestre)
+                VALUES (?, ?)
+            `, [idAluno, idBimestre]);
+            idBimestre_Aluno = baResult.insertId;
+        }
+
+        // 2) Verifica se já existe nota em Notas_Bimestre_Aluno para esse idBimestre_Aluno
+        const [existingNota] = await db.query(`
+            SELECT idNotas
+            FROM Notas_Bimestre_Aluno
+            WHERE idBimestre_Aluno = ?
+        `, [idBimestre_Aluno]);
+
+        if (existingNota.length > 0) {
+            // Já existe, então apenas atualiza
+            await db.query(`
+                UPDATE Notas_Bimestre_Aluno
+                   SET nota = ?
+                 WHERE idBimestre_Aluno = ?
+            `, [nota, idBimestre_Aluno]);
+
+            return res.status(200).send('Nota atualizada com sucesso');
+        } else {
+            // 3) Insere a nova nota
+            await db.query(`
+                INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
+                VALUES (?, 0, ?)
+            `, [idBimestre_Aluno, nota]);
+
+            return res.status(201).send('Nota criada com sucesso');
+        }
     } catch (err) {
         console.error('Erro ao atribuir nota:', err);
-        res.status(500).json({ error: 'Erro ao atribuir nota', details: err });
+        res.status(500).json({ 
+            error: 'Erro ao atribuir nota', 
+            details: err 
+        });
     }
 };
 
+/**
+ * Atualizar nota de um aluno, agora exigindo `:idBimestre`.
+ */
+exports.updateNota = async (req, res) => {
+    const { idAluno, idBimestre } = req.params;
+    const { nota } = req.body;
+
+    if (nota === undefined || isNaN(parseFloat(nota))) {
+        return res.status(400).json({
+            error: 'O campo "nota" é obrigatório e deve ser um número válido'
+        });
+    }
+
+    try {
+        // 1) Localiza o idBimestre_Aluno
+        const [baRows] = await db.query(`
+            SELECT idBimestre_Aluno 
+            FROM Bimestre_Alunos
+            WHERE idAluno = ?
+              AND idBimestre = ?
+        `, [idAluno, idBimestre]);
+
+        if (baRows.length === 0) {
+            return res.status(404).json({
+                error: 'Não existe registro de Bimestre_Alunos para esse aluno e bimestre'
+            });
+        }
+
+        const idBimestre_Aluno = baRows[0].idBimestre_Aluno;
+
+        // 2) Atualiza na Notas_Bimestre_Aluno
+        const [updateResult] = await db.query(`
+            UPDATE Notas_Bimestre_Aluno
+               SET nota = ?
+             WHERE idBimestre_Aluno = ?
+        `, [nota, idBimestre_Aluno]);
+
+        if (updateResult.affectedRows === 0) {
+            return res.status(404).json({
+                error: 'Nenhuma nota existente para atualizar neste bimestre'
+            });
+        }
+
+        res.status(200).send('Nota atualizada com sucesso');
+    } catch (err) {
+        console.error('Erro ao atualizar nota:', err);
+        res.status(500).json({ 
+            error: 'Erro ao atualizar nota', 
+            details: err 
+        });
+    }
+};
+
+/**
+ * Buscar média de notas por turma e bimestre.
+ */
 exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
 
     try {
-        // Verifica se existem alunos e notas correspondentes à turma e bimestre
         const [rows] = await db.query(`
-            SELECT AVG(a.nota) AS mediaNota
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            SELECT AVG(nba.nota) AS mediaNota
+            FROM Bimestre_Alunos ba
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
             JOIN Bimestres b ON ba.idBimestre = b.idBimestre
             JOIN Materias m ON b.idMateria = m.idMateria
-            WHERE m.idTurma = ? AND b.idBimestre = ? AND a.nota IS NOT NULL
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            WHERE m.idTurma = ?
+              AND b.idBimestre = ?
+              AND nba.nota IS NOT NULL
         `, [idTurma, idBimestre]);
 
-        if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: 'Nenhuma média encontrada para os critérios fornecidos.' });
+        if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
+            return res.status(404).json({ 
+                error: 'Nenhuma média encontrada para os critérios fornecidos.' 
+            });
         }
 
         const mediaNota = parseFloat(rows[0].mediaNota) || 0;
 
         res.status(200).json({
-            mediaNota: mediaNota.toFixed(2), // Retorna com 2 casas decimais
+            mediaNota: mediaNota.toFixed(2),
         });
     } catch (error) {
         console.error('Erro ao calcular média da turma:', error);
@@ -45,24 +161,24 @@ exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     }
 };
 
-
-
-
-
-
-// Buscar o total de alunos com notas em uma turma e bimestre
+/**
+ * Buscar o total de alunos com notas em uma turma e bimestre.
+ */
 exports.getTotalNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT COUNT(a.idAluno) as totalNotas
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            WHERE a.idTurma = ? AND ba.idBimestre = ? AND a.nota IS NOT NULL;
+            SELECT COUNT(DISTINCT ba.idAluno) AS totalNotas
+            FROM Bimestre_Alunos ba
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.nota IS NOT NULL
         `, [idTurma, idBimestre]);
 
-        const totalNotas = rows.length > 0 ? rows[0].totalNotas : 0;
+        const totalNotas = rows[0]?.totalNotas || 0;
         res.json({ totalNotas });
     } catch (error) {
         console.error('Erro ao buscar total de notas:', error);
@@ -73,53 +189,60 @@ exports.getTotalNotasByTurmaAndBimestre = async (req, res) => {
     }
 };
 
-// Atualizar nota de um aluno
-exports.updateNota = async (req, res) => {
-    const { idAluno } = req.params;
-    const { nota } = req.body;
-    const query = 'UPDATE Alunos SET nota = ? WHERE idAluno = ?';
-    try {
-        await db.query(query, [nota, idAluno]);
-        res.status(200).send('Nota atualizada com sucesso');
-    } catch (err) {
-        console.error('Erro ao atualizar nota:', err);
-        res.status(500).json({ error: 'Erro ao atualizar nota', details: err });
-    }
-};
-
-// Buscar notas por aluno
+/**
+ * Buscar notas por aluno (SEM filtrar bimestre). 
+ * Se quiser filtrar por bimestre, podemos criar outra rota (ou adaptar).
+ */
 exports.getNotasByAluno = async (req, res) => {
     const { idAluno } = req.params;
-    const query = `
-        SELECT a.idAluno, a.nome, a.nota
-        FROM Alunos a
-        WHERE a.idAluno = ?`;
     try {
-        const [results] = await db.query(query, [idAluno]);
+        const [results] = await db.query(`
+            SELECT 
+                ba.idBimestre_Aluno,
+                nba.idNotas,
+                nba.nota,
+                b.idBimestre,
+                b.descricao AS nomeBimestre
+            FROM Bimestre_Alunos ba
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            WHERE ba.idAluno = ?
+        `, [idAluno]);
+
         res.status(200).json(results);
     } catch (err) {
         console.error('Erro ao buscar notas do aluno:', err);
-        res.status(500).json({ error: 'Erro ao buscar notas do aluno', details: err });
+        res.status(500).json({ 
+            error: 'Erro ao buscar notas do aluno', 
+            details: err 
+        });
     }
 };
 
+/**
+ * Dados para gráfico (turma e bimestre).
+ */
 exports.getChartDataByTurmaAndBimestre = async (req, res) => {
-    const { idTurma } = req.params;
+    const { idTurma, idBimestre } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT 
+            SELECT
                 CASE
-                    WHEN nota BETWEEN 0 AND 4.9 THEN '0-4.9'
-                    WHEN nota BETWEEN 5 AND 6.9 THEN '5-6.9'
-                    WHEN nota BETWEEN 7 AND 10 THEN '7-10'
-                    ELSE 'Sem Nota'
+                    WHEN nba.nota IS NULL THEN 'Sem Nota'
+                    WHEN nba.nota BETWEEN 0 AND 4.9 THEN '0-4.9'
+                    WHEN nba.nota BETWEEN 5 AND 6.9 THEN '5-6.9'
+                    WHEN nba.nota BETWEEN 7 AND 10 THEN '7-10'
+                    ELSE 'Fora de Faixa'
                 END AS faixaNota,
                 COUNT(*) AS quantidade
-            FROM Alunos
-            WHERE idTurma = ?
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            LEFT JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
             GROUP BY faixaNota
-        `, [idTurma]);
+        `, [idTurma, idBimestre]);
 
         const chartData = rows.map(row => ({
             faixa: row.faixaNota,
@@ -136,25 +259,34 @@ exports.getChartDataByTurmaAndBimestre = async (req, res) => {
     }
 };
 
-
-// Buscar nota do aluno para uma matéria, bimestre e turma específicos
+/**
+ * Buscar nota do aluno para uma matéria, bimestre e turma específicos.
+ */
 exports.getNotaByAlunoAndMateria = async (req, res) => {
     const { idAluno, idMateria, idBimestre, idTurma } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT a.nome, ba.nota
+            SELECT 
+                a.nome AS nomeAluno, 
+                nba.nota
             FROM Alunos a
             JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Materias m ON ba.idMateria = m.idMateria
-            WHERE a.idAluno = ? AND m.idMateria = ? AND ba.idBimestre = ? AND a.idTurma = ?;
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            WHERE a.idAluno = ?
+              AND b.idMateria = ?
+              AND ba.idBimestre = ?
+              AND a.idTurma = ?;
         `, [idAluno, idMateria, idBimestre, idTurma]);
 
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Nenhuma nota encontrada para o aluno, matéria, bimestre e turma especificados' });
+            return res.status(404).json({ 
+                error: 'Nenhuma nota encontrada para o aluno, matéria, bimestre e turma especificados' 
+            });
         }
 
-        res.json(rows[0]); // Retorna apenas o registro encontrado
+        res.json(rows[0]);
     } catch (error) {
         console.error('Erro ao buscar nota do aluno:', error);
         res.status(500).json({
@@ -164,57 +296,73 @@ exports.getNotaByAlunoAndMateria = async (req, res) => {
     }
 };
 
-// Criar ou atualizar nota
+/**
+ * Criar ou atualizar nota de um aluno para (idBimestre, idMateria, idTurma).
+ */
 exports.createOrUpdateNota = async (req, res) => {
     const { idAluno, idMateria, idBimestre, idTurma } = req.params;
     const { nota } = req.body;
 
-    // Verifica se o campo "nota" está presente e é um número válido
-    if (nota === undefined || nota === null || isNaN(parseFloat(nota))) {
-        return res.status(400).json({ error: 'O campo "nota" é obrigatório e deve ser um número válido' });
+    if (nota === undefined || isNaN(parseFloat(nota))) {
+        return res.status(400).json({
+            error: 'O campo "nota" é obrigatório e deve ser um número válido'
+        });
     }
 
     try {
-        // Verifica se a turma e a matéria correspondem
+        // (1) Verifica se a matéria pertence a esta turma
         const [materiaCheck] = await db.query(`
             SELECT idMateria
             FROM Materias
-            WHERE idMateria = ? AND idTurma = ?;
+            WHERE idMateria = ?
+              AND idTurma = ?
         `, [idMateria, idTurma]);
 
         if (materiaCheck.length === 0) {
             return res.status(404).json({ error: 'Matéria não encontrada para esta turma' });
         }
 
-        // Verifica se já existe um registro para o aluno, bimestre e turma
-        const [existing] = await db.query(`
-            SELECT idAluno, idBimestre
+        // (2) Verifica se existe Bimestre_Alunos para (idAluno, idBimestre)
+        const [existingBA] = await db.query(`
+            SELECT idBimestre_Aluno
             FROM Bimestre_Alunos
-            WHERE idAluno = ? AND idBimestre = ?;
+            WHERE idAluno = ?
+              AND idBimestre = ?
         `, [idAluno, idBimestre]);
 
-        if (existing.length > 0) {
-            // Atualiza a nota
+        let idBimestre_Aluno;
+        if (existingBA.length > 0) {
+            idBimestre_Aluno = existingBA[0].idBimestre_Aluno;
+        } else {
+            // Cria em Bimestre_Alunos
+            const [resultBA] = await db.query(`
+                INSERT INTO Bimestre_Alunos (idAluno, idBimestre)
+                VALUES (?, ?)
+            `, [idAluno, idBimestre]);
+            idBimestre_Aluno = resultBA.insertId;
+        }
+
+        // (3) Verifica se já existe registro em Notas_Bimestre_Aluno
+        const [existingNota] = await db.query(`
+            SELECT idNotas
+            FROM Notas_Bimestre_Aluno
+            WHERE idBimestre_Aluno = ?
+        `, [idBimestre_Aluno]);
+
+        // (4) Se já existir, atualiza, senão insere
+        if (existingNota.length > 0) {
             await db.query(`
-                UPDATE Alunos
-                SET nota = ?
-                WHERE idAluno = ? AND idTurma = ?;
-            `, [nota, idAluno, idTurma]);
+                UPDATE Notas_Bimestre_Aluno
+                   SET nota = ?
+                 WHERE idBimestre_Aluno = ?
+            `, [nota, idBimestre_Aluno]);
 
             return res.status(200).send('Nota atualizada com sucesso');
         } else {
-            // Insere a nota para o aluno no bimestre
             await db.query(`
-                INSERT INTO Bimestre_Alunos (idBimestre, idAluno)
-                VALUES (?, ?);
-            `, [idBimestre, idAluno]);
-
-            // Atualiza a nota na tabela de alunos
-            await db.query(`
-                UPDATE Alunos
-                SET nota = ?
-                WHERE idAluno = ? AND idTurma = ?;
-            `, [nota, idAluno, idTurma]);
+                INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
+                VALUES (?, 0, ?)
+            `, [idBimestre_Aluno, nota]);
 
             return res.status(201).send('Nota criada com sucesso');
         }
@@ -227,26 +375,30 @@ exports.createOrUpdateNota = async (req, res) => {
     }
 };
 
-
-
-
-
-
-// Buscar todas as notas de um aluno em uma turma e bimestre específicos
+/**
+ * Buscar todas as notas de um aluno em uma turma e bimestre específicos.
+ */
 exports.getNotasByAluno = async (req, res) => {
     const { idAluno, idBimestre, idTurma } = req.params;
-
     try {
         const [rows] = await db.query(`
-            SELECT m.nome AS materia, ba.nota
+            SELECT 
+                m.nomeMateria AS materia,
+                nba.nota
             FROM Materias m
-            JOIN Bimestre_Alunos ba ON m.idMateria = ba.idMateria
+            JOIN Bimestres b ON m.idMateria = b.idMateria
+            JOIN Bimestre_Alunos ba ON b.idBimestre = ba.idBimestre
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
             JOIN Alunos a ON ba.idAluno = a.idAluno
-            WHERE a.idAluno = ? AND ba.idBimestre = ? AND a.idTurma = ?;
+            WHERE a.idAluno = ?
+              AND ba.idBimestre = ?
+              AND a.idTurma = ?
         `, [idAluno, idBimestre, idTurma]);
 
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Nenhuma nota encontrada para o aluno e critérios especificados' });
+            return res.status(404).json({
+                error: 'Nenhuma nota encontrada para o aluno e critérios especificados'
+            });
         }
 
         res.json(rows);
@@ -259,24 +411,29 @@ exports.getNotasByAluno = async (req, res) => {
     }
 };
 
+/**
+ * Buscar todas as notas de uma turma/bimestre/matéria.
+ */
 exports.getNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
-
     try {
         const [rows] = await db.query(`
             SELECT 
-                a.nome AS nomeAluno, 
-                a.nota 
+                a.nome AS nomeAluno,
+                nba.nota
             FROM Alunos a
             JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
             JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            WHERE ba.idBimestre = ? 
-              AND a.idTurma = ? 
+            WHERE ba.idBimestre = ?
+              AND a.idTurma = ?
               AND b.idMateria = ?;
         `, [idBimestre, idTurma, idMateria]);
 
         if (rows.length === 0) {
-            return res.status(404).json({ error: 'Nenhuma nota encontrada para os critérios fornecidos' });
+            return res.status(404).json({ 
+                error: 'Nenhuma nota encontrada para os critérios fornecidos' 
+            });
         }
 
         res.status(200).json(rows);
@@ -288,5 +445,3 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
-
-

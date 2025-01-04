@@ -14,10 +14,9 @@ router.delete('/:idAluno', alunoController.deleteAluno);
 router.get('/turma/:idTurma', alunoController.getAlunoByIdTurma);
 
 // Rotas relacionadas às notas e habilidades dos alunos em uma turma e bimestre
-router.get('/notas/media/:idTurma/:idBimestre', notaController.getMediaNotasByTurmaAndBimestre);
 router.get('/alunoscomnotas/:idTurma/:idBimestre', alunoController.getAlunosComNotasByTurmaAndBimestre);
-router.get('/:idAluno/habilidades/:idBimestre', alunoController.getHabilidadeByAlunoIdAndBimestre);
 router.get('/:idAluno/notas/:idBimestre', alunoController.getNotaByAlunoIdAndBimestre);
+router.get('/:idAluno/habilidades/:idBimestre', alunoController.getHabilidadeByAlunoIdAndBimestre);
 
 // Rota para obter alunos por bimestre e professor
 router.get('/bimestre/:idBimestre/professor/:idProfessor', alunoController.getAlunosByBimestreAndProfessor);
