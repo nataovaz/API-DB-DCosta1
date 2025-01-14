@@ -50,7 +50,7 @@ exports.createNota = async (req, res) => {
                  WHERE idBimestre_Aluno = ?
             `, [nota, idBimestre_Aluno]);
 
-            return res.status(200).send('Nota atualizada com sucesso');
+            return res.status(200).json({ message: 'Nota atualizada com sucesso' });
         } else {
             // 3) Insere a nova nota
             await db.query(`
@@ -58,7 +58,7 @@ exports.createNota = async (req, res) => {
                 VALUES (?, 0, ?)
             `, [idBimestre_Aluno, nota]);
 
-            return res.status(201).send('Nota criada com sucesso');
+            return res.status(201).json({ message: 'Nota criada com sucesso' });
         }
     } catch (err) {
         console.error('Erro ao atribuir nota:', err);
@@ -112,7 +112,7 @@ exports.updateNota = async (req, res) => {
             });
         }
 
-        res.status(200).send('Nota atualizada com sucesso');
+        res.status(200).json({ message: 'Nota atualizada com sucesso' });
     } catch (err) {
         console.error('Erro ao atualizar nota:', err);
         res.status(500).json({ 
@@ -357,14 +357,14 @@ exports.createOrUpdateNota = async (req, res) => {
                  WHERE idBimestre_Aluno = ?
             `, [nota, idBimestre_Aluno]);
 
-            return res.status(200).send('Nota atualizada com sucesso');
+            return res.status(201).json({ message: 'Nota criada com sucesso' });
         } else {
             await db.query(`
                 INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
                 VALUES (?, 0, ?)
             `, [idBimestre_Aluno, nota]);
 
-            return res.status(201).send('Nota criada com sucesso');
+            return res.status(201).json({ message: 'Nota criada com sucesso' });
         }
     } catch (error) {
         console.error('Erro ao criar ou atualizar nota:', error);

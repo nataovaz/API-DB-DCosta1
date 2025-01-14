@@ -6,8 +6,6 @@ const notaController = require('../controllers/notaController');
 
 // Criar nota, agora exigindo o bimestre
 router.post('/:idAluno/:idBimestre', notaController.createNota);
-
-// Atualizar nota, agora também exigindo o bimestre
 router.put('/:idAluno/:idBimestre', notaController.updateNota);
 
 // Buscar média de notas por turma e bimestre
@@ -16,10 +14,8 @@ router.get('/media/:idTurma/:idBimestre', notaController.getMediaNotasByTurmaAnd
 // Buscar total de notas por turma e bimestre
 router.get('/total/:idTurma/:idBimestre', notaController.getTotalNotasByTurmaAndBimestre);
 
-// Buscar notas do aluno (neste caso, sem bimestre — ou poderíamos também exigir bimestre)
 router.get('/:idAluno', notaController.getNotasByAluno);
 
-// Dados para gráfico
 router.get('/chartdata/:idTurma/:idBimestre', notaController.getChartDataByTurmaAndBimestre);
 
 // Buscar nota do aluno para uma matéria, bimestre e turma específicos
