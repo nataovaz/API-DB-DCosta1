@@ -131,8 +131,6 @@ exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
 
     try {
-        console.log('Buscando média de notas para Turma:', idTurma, 'Bimestre:', idBimestre);
-
         const [rows] = await db.query(
             `
             SELECT AVG(nba.nota) AS mediaNota
@@ -145,22 +143,19 @@ exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
         );
 
         if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
-            console.warn(`Nenhuma média encontrada para Turma ${idTurma}, Bimestre ${idBimestre}.`);
-            return res.status(404).json({ error: 'Nenhuma média encontrada' });
+            return res.status(404).json({ error: 'Nenhuma média encontrada para a turma e bimestre especificados.' });
         }
 
-        const mediaNota = parseFloat(rows[0].mediaNota).toFixed(2);
-        console.log('Média de notas encontrada:', mediaNota);
-
-        res.status(200).json({ mediaNota });
+        res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
     } catch (error) {
         console.error('Erro ao buscar média de notas:', error);
         res.status(500).json({
-            error: 'Erro interno ao buscar média de notas',
+            error: 'Erro ao buscar média de notas.',
             details: error.message,
         });
     }
 };
+
   
 /**
  * Buscar o total de alunos com notas em uma turma e bimestre.

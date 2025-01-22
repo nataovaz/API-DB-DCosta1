@@ -132,8 +132,6 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
 
     try {
-        console.log('Buscando estatísticas de habilidades para Turma:', idTurma, 'Bimestre:', idBimestre);
-
         const [rows] = await db.query(
             `
             SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
@@ -149,27 +147,22 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
         );
 
         if (!rows || rows.length === 0) {
-            console.warn(`Nenhuma habilidade encontrada para Turma ${idTurma}, Bimestre ${idBimestre}.`);
-            return res.status(404).json({ message: 'Nenhuma habilidade encontrada' });
+            return res.status(404).json({ message: 'Nenhuma estatística de habilidades encontrada.' });
         }
 
-        const maisAcertada = rows[0]?.habilidade || 'N/A';
-        const menosAcertada = rows[rows.length - 1]?.habilidade || 'N/A';
-
-        console.log('Estatísticas de habilidades encontradas:', {
-            maisAcertada,
-            menosAcertada,
-        });
+        const maisAcertada = rows[0].habilidade || 'N/A';
+        const menosAcertada = rows[rows.length - 1].habilidade || 'N/A';
 
         res.status(200).json({ maisAcertada, menosAcertada });
     } catch (error) {
         console.error('Erro ao buscar estatísticas de habilidades:', error);
         res.status(500).json({
-            error: 'Erro interno ao buscar estatísticas de habilidades',
+            error: 'Erro interno ao buscar estatísticas de habilidades.',
             details: error.message,
         });
     }
 };
+
 
 /**
  * Estatísticas de habilidades por aluno e bimestre, considerando a turma.
