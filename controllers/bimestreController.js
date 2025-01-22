@@ -52,3 +52,23 @@ exports.getBimestresByMateria = async (req, res) => {
         res.status(500).json({ error: 'Erro ao buscar bimestres por matéria', details: err });
     }
 };
+
+exports.getBimestresByTurma = async (req, res) => {
+    const { idTurma } = req.params;
+    try {
+      const [rows] = await db.query(`
+        SELECT idBimestre, descricao
+        FROM Bimestres
+        WHERE idTurma = ?
+      `, [idTurma]);
+  
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Nenhum bimestre encontrado para esta turma.' });
+      }
+  
+      res.status(200).json(rows);
+    } catch (error) {
+      console.error('Erro ao buscar bimestres:', error);
+      res.status(500).json({ error: 'Erro ao buscar bimestres', details: error.message });
+    }
+  };

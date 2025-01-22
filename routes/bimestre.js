@@ -7,4 +7,6 @@ router.post('/', bimestreController.createBimestre);
 router.put('/:idBimestre', bimestreController.updateBimestre);
 router.delete('/:idBimestre', bimestreController.deleteBimestre);
 
+router.get('/:idTurma', bimestreController.getBimestresByTurma);
+
 module.exports = router;

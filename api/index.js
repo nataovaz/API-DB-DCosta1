@@ -22,6 +22,7 @@ const alunoRoutes = require('../routes/aluno');
 const habilidadeRoutes = require('../routes/habilidade');
 const notaRoutes = require('../routes/nota');
 const materiaRoutes = require('../routes/materia');
+const bimestreRoutes = require('../routes/bimestre');
 
 // Registrar as rotas
 // Exemplo: GET /api/habilidade => chama as rotas definidas em habilidadeRoutes
@@ -31,6 +32,8 @@ app.use('/api/alunos', alunoRoutes);
 app.use('/api/habilidade', habilidadeRoutes);
 app.use('/api/notas', notaRoutes);
 app.use('/api/materias', materiaRoutes);
+app.use('/api/bimestres', bimestreRoutes);
+
 
 // Rota de teste
 app.get('/test', (req, res) => {

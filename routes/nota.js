@@ -34,4 +34,6 @@ router.get('/aluno/:idAluno/:idBimestre/:idTurma', notaController.getNotasByAlun
 // Buscar todas as notas de uma turma/bimestre/matéria
 router.get('/:idTurma/:idBimestre/:idMateria', notaController.getNotasByTurmaAndBimestre);
 
+
+
 module.exports = router;
