@@ -410,23 +410,27 @@ exports.getNotasByAluno = async (req, res) => {
  */
 exports.getNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
+    console.log('Recebido:', { idTurma, idBimestre, idMateria });
+
     try {
         const [rows] = await db.query(`
             SELECT 
                 a.nome AS nomeAluno,
                 nba.nota
-              FROM Alunos a
-              JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-              JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-             WHERE ba.idBimestre = ?
-               AND a.idTurma = ?
-               AND b.idMateria = ?;
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            WHERE ba.idBimestre = ?
+            AND a.idTurma = ?
+            AND b.idMateria = ?;
         `, [idBimestre, idTurma, idMateria]);
+
+        console.log('Resultado:', rows);
 
         if (rows.length === 0) {
             return res.status(404).json({ 
-                error: 'Nenhuma nota encontrada para os critérios fornecidos' 
+                error: 'Nenhuma nota encontrada para os critérios fornecidos.' 
             });
         }
 
@@ -439,3 +443,4 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
+
