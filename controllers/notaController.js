@@ -1,7 +1,9 @@
 const db = require('../config/db');
 
 /**
- * Criar nova nota, agora exigindo `:idAluno` e `:idBimestre` na rota.
+ * Criar nova nota, exigindo `:idAluno` e `:idBimestre` na rota.
+ * Insere ou atualiza em Notas_Bimestre_Aluno, criando registro
+ * em Bimestre_Alunos se não existir.
  */
 exports.createNota = async (req, res) => {
     try {
@@ -15,19 +17,19 @@ exports.createNota = async (req, res) => {
             });
         }
 
-        // 1) Encontra ou cria o registro em Bimestre_Alunos (caso não exista)
+        // 1) Verifica Bimestre_Alunos
         const [baExisting] = await db.query(`
             SELECT idBimestre_Aluno
-            FROM Bimestre_Alunos
-            WHERE idAluno = ?
-              AND idBimestre = ?
+              FROM Bimestre_Alunos
+             WHERE idAluno = ?
+               AND idBimestre = ?
         `, [idAluno, idBimestre]);
 
         let idBimestre_Aluno;
         if (baExisting.length > 0) {
             idBimestre_Aluno = baExisting[0].idBimestre_Aluno;
         } else {
-            // Se não existe, insere
+            // Se não existe, cria
             const [baResult] = await db.query(`
                 INSERT INTO Bimestre_Alunos (idAluno, idBimestre)
                 VALUES (?, ?)
@@ -35,15 +37,15 @@ exports.createNota = async (req, res) => {
             idBimestre_Aluno = baResult.insertId;
         }
 
-        // 2) Verifica se já existe nota em Notas_Bimestre_Aluno para esse idBimestre_Aluno
+        // 2) Verifica se já existe nota
         const [existingNota] = await db.query(`
             SELECT idNotas
-            FROM Notas_Bimestre_Aluno
-            WHERE idBimestre_Aluno = ?
+              FROM Notas_Bimestre_Aluno
+             WHERE idBimestre_Aluno = ?
         `, [idBimestre_Aluno]);
 
         if (existingNota.length > 0) {
-            // Já existe, então apenas atualiza
+            // Já existe => atualiza
             await db.query(`
                 UPDATE Notas_Bimestre_Aluno
                    SET nota = ?
@@ -52,7 +54,7 @@ exports.createNota = async (req, res) => {
 
             return res.status(200).json({ message: 'Nota atualizada com sucesso' });
         } else {
-            // 3) Insere a nova nota
+            // Caso não exista => cria
             await db.query(`
                 INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
                 VALUES (?, 0, ?)
@@ -70,7 +72,7 @@ exports.createNota = async (req, res) => {
 };
 
 /**
- * Atualizar nota de um aluno, agora exigindo `:idBimestre`.
+ * Atualizar nota de um aluno (rota: /notas/:idAluno/:idBimestre).
  */
 exports.updateNota = async (req, res) => {
     const { idAluno, idBimestre } = req.params;
@@ -83,12 +85,12 @@ exports.updateNota = async (req, res) => {
     }
 
     try {
-        // 1) Localiza o idBimestre_Aluno
+        // 1) Localiza Bimestre_Alunos
         const [baRows] = await db.query(`
             SELECT idBimestre_Aluno 
-            FROM Bimestre_Alunos
-            WHERE idAluno = ?
-              AND idBimestre = ?
+              FROM Bimestre_Alunos
+             WHERE idAluno = ?
+               AND idBimestre = ?
         `, [idAluno, idBimestre]);
 
         if (baRows.length === 0) {
@@ -99,7 +101,7 @@ exports.updateNota = async (req, res) => {
 
         const idBimestre_Aluno = baRows[0].idBimestre_Aluno;
 
-        // 2) Atualiza na Notas_Bimestre_Aluno
+        // 2) Atualiza Notas_Bimestre_Aluno
         const [updateResult] = await db.query(`
             UPDATE Notas_Bimestre_Aluno
                SET nota = ?
@@ -131,14 +133,14 @@ exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT AVG(nba.nota) AS mediaNota
-            FROM Bimestre_Alunos ba
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            JOIN Materias m ON b.idMateria = m.idMateria
-            JOIN Alunos a ON ba.idAluno = a.idAluno
-            WHERE m.idTurma = ?
-              AND b.idBimestre = ?
-              AND nba.nota IS NOT NULL
+              FROM Bimestre_Alunos ba
+              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+              JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+              JOIN Materias m ON b.idMateria = m.idMateria
+              JOIN Alunos a ON ba.idAluno = a.idAluno
+             WHERE m.idTurma = ?
+               AND b.idBimestre = ?
+               AND nba.nota IS NOT NULL
         `, [idTurma, idBimestre]);
 
         if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
@@ -170,12 +172,12 @@ exports.getTotalNotasByTurmaAndBimestre = async (req, res) => {
     try {
         const [rows] = await db.query(`
             SELECT COUNT(DISTINCT ba.idAluno) AS totalNotas
-            FROM Bimestre_Alunos ba
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Alunos a ON ba.idAluno = a.idAluno
-            WHERE a.idTurma = ?
-              AND ba.idBimestre = ?
-              AND nba.nota IS NOT NULL
+              FROM Bimestre_Alunos ba
+              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+              JOIN Alunos a ON ba.idAluno = a.idAluno
+             WHERE a.idTurma = ?
+               AND ba.idBimestre = ?
+               AND nba.nota IS NOT NULL
         `, [idTurma, idBimestre]);
 
         const totalNotas = rows[0]?.totalNotas || 0;
@@ -190,8 +192,7 @@ exports.getTotalNotasByTurmaAndBimestre = async (req, res) => {
 };
 
 /**
- * Buscar notas por aluno (SEM filtrar bimestre). 
- * Se quiser filtrar por bimestre, podemos criar outra rota (ou adaptar).
+ * Buscar notas por aluno (sem filtrar bimestre).
  */
 exports.getNotasByAluno = async (req, res) => {
     const { idAluno } = req.params;
@@ -203,10 +204,10 @@ exports.getNotasByAluno = async (req, res) => {
                 nba.nota,
                 b.idBimestre,
                 b.descricao AS nomeBimestre
-            FROM Bimestre_Alunos ba
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            WHERE ba.idAluno = ?
+              FROM Bimestre_Alunos ba
+              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+              JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+             WHERE ba.idAluno = ?
         `, [idAluno]);
 
         res.status(200).json(results);
@@ -220,7 +221,7 @@ exports.getNotasByAluno = async (req, res) => {
 };
 
 /**
- * Dados para gráfico (turma e bimestre).
+ * Dados para gráfico (exemplo de faixas de notas) por turma e bimestre.
  */
 exports.getChartDataByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
@@ -236,12 +237,12 @@ exports.getChartDataByTurmaAndBimestre = async (req, res) => {
                     ELSE 'Fora de Faixa'
                 END AS faixaNota,
                 COUNT(*) AS quantidade
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            LEFT JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            WHERE a.idTurma = ?
-              AND ba.idBimestre = ?
-            GROUP BY faixaNota
+              FROM Alunos a
+              JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+              LEFT JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+             WHERE a.idTurma = ?
+               AND ba.idBimestre = ?
+          GROUP BY faixaNota
         `, [idTurma, idBimestre]);
 
         const chartData = rows.map(row => ({
@@ -270,14 +271,14 @@ exports.getNotaByAlunoAndMateria = async (req, res) => {
             SELECT 
                 a.nome AS nomeAluno, 
                 nba.nota
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            WHERE a.idAluno = ?
-              AND b.idMateria = ?
-              AND ba.idBimestre = ?
-              AND a.idTurma = ?;
+              FROM Alunos a
+              JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+              JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+             WHERE a.idAluno = ?
+               AND b.idMateria = ?
+               AND ba.idBimestre = ?
+               AND a.idTurma = ?;
         `, [idAluno, idMateria, idBimestre, idTurma]);
 
         if (rows.length === 0) {
@@ -310,31 +311,30 @@ exports.createOrUpdateNota = async (req, res) => {
     }
 
     try {
-        // (1) Verifica se a matéria pertence a esta turma
+        // Verifica se a matéria pertence a esta turma
         const [materiaCheck] = await db.query(`
             SELECT idMateria
-            FROM Materias
-            WHERE idMateria = ?
-              AND idTurma = ?
+              FROM Materias
+             WHERE idMateria = ?
+               AND idTurma = ?
         `, [idMateria, idTurma]);
 
         if (materiaCheck.length === 0) {
             return res.status(404).json({ error: 'Matéria não encontrada para esta turma' });
         }
 
-        // (2) Verifica se existe Bimestre_Alunos para (idAluno, idBimestre)
+        // Verifica se existe Bimestre_Alunos
         const [existingBA] = await db.query(`
             SELECT idBimestre_Aluno
-            FROM Bimestre_Alunos
-            WHERE idAluno = ?
-              AND idBimestre = ?
+              FROM Bimestre_Alunos
+             WHERE idAluno = ?
+               AND idBimestre = ?
         `, [idAluno, idBimestre]);
 
         let idBimestre_Aluno;
         if (existingBA.length > 0) {
             idBimestre_Aluno = existingBA[0].idBimestre_Aluno;
         } else {
-            // Cria em Bimestre_Alunos
             const [resultBA] = await db.query(`
                 INSERT INTO Bimestre_Alunos (idAluno, idBimestre)
                 VALUES (?, ?)
@@ -342,15 +342,15 @@ exports.createOrUpdateNota = async (req, res) => {
             idBimestre_Aluno = resultBA.insertId;
         }
 
-        // (3) Verifica se já existe registro em Notas_Bimestre_Aluno
+        // Verifica se já existe nota
         const [existingNota] = await db.query(`
             SELECT idNotas
-            FROM Notas_Bimestre_Aluno
-            WHERE idBimestre_Aluno = ?
+              FROM Notas_Bimestre_Aluno
+             WHERE idBimestre_Aluno = ?
         `, [idBimestre_Aluno]);
 
-        // (4) Se já existir, atualiza, senão insere
         if (existingNota.length > 0) {
+            // Atualiza
             await db.query(`
                 UPDATE Notas_Bimestre_Aluno
                    SET nota = ?
@@ -359,6 +359,7 @@ exports.createOrUpdateNota = async (req, res) => {
 
             return res.status(201).json({ message: 'Nota criada com sucesso' });
         } else {
+            // Insere
             await db.query(`
                 INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
                 VALUES (?, 0, ?)
@@ -385,14 +386,14 @@ exports.getNotasByAluno = async (req, res) => {
             SELECT 
                 m.nomeMateria AS materia,
                 nba.nota
-            FROM Materias m
-            JOIN Bimestres b ON m.idMateria = b.idMateria
-            JOIN Bimestre_Alunos ba ON b.idBimestre = ba.idBimestre
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Alunos a ON ba.idAluno = a.idAluno
-            WHERE a.idAluno = ?
-              AND ba.idBimestre = ?
-              AND a.idTurma = ?
+              FROM Materias m
+              JOIN Bimestres b ON m.idMateria = b.idMateria
+              JOIN Bimestre_Alunos ba ON b.idBimestre = ba.idBimestre
+              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+              JOIN Alunos a ON ba.idAluno = a.idAluno
+             WHERE a.idAluno = ?
+               AND ba.idBimestre = ?
+               AND a.idTurma = ?
         `, [idAluno, idBimestre, idTurma]);
 
         if (rows.length === 0) {
@@ -421,13 +422,13 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
             SELECT 
                 a.nome AS nomeAluno,
                 nba.nota
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            WHERE ba.idBimestre = ?
-              AND a.idTurma = ?
-              AND b.idMateria = ?;
+              FROM Alunos a
+              JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+              JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+             WHERE ba.idBimestre = ?
+               AND a.idTurma = ?
+               AND b.idMateria = ?;
         `, [idBimestre, idTurma, idMateria]);
 
         if (rows.length === 0) {
