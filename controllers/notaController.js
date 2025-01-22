@@ -162,7 +162,6 @@ exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
-
 /**
  * Buscar o total de alunos com notas em uma turma e bimestre.
  */

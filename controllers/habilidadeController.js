@@ -132,7 +132,7 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
 
     try {
-        const [rows] = await db.query(`
+        let query = `
             SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
               FROM DesempenhoHabilidades dh
               JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
@@ -140,10 +140,20 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
               JOIN Alunos a ON ba.idAluno = a.idAluno
              WHERE a.idTurma = ?
                AND ba.idBimestre = ?
-               AND h.idMateria = ?
+        `;
+        let params = [idTurma, idBimestre];
+
+        if (idMateria) {
+            query += ' AND h.idMateria = ?';
+            params.push(idMateria);
+        }
+
+        query += `
           GROUP BY h.nome
           ORDER BY total DESC
-        `, [idTurma, idBimestre, idMateria]);
+        `;
+
+        const [rows] = await db.query(query, params);
 
         if (!rows.length) {
             return res.status(404).json({ message: 'Nenhuma habilidade encontrada para os critérios fornecidos.' });
