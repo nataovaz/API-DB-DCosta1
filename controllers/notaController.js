@@ -410,7 +410,7 @@ exports.getNotasByAluno = async (req, res) => {
  */
 exports.getNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
-    console.log('Recebido:', { idTurma, idBimestre, idMateria });
+    console.log('Parâmetros recebidos:', { idTurma, idBimestre, idMateria });
 
     try {
         const [rows] = await db.query(`
@@ -426,7 +426,7 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
             AND b.idMateria = ?;
         `, [idBimestre, idTurma, idMateria]);
 
-        console.log('Resultado:', rows);
+        console.log('Resultado da consulta:', rows);
 
         if (rows.length === 0) {
             return res.status(404).json({ 
@@ -443,4 +443,5 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
+
 
