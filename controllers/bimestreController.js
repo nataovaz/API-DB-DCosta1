@@ -57,9 +57,7 @@ exports.getBimestresByTurma = async (req, res) => {
     const { idTurma } = req.params;
     try {
         const [rows] = await db.query(`
-            SELECT 
-                b.idBimestre, 
-                b.descricao 
+            SELECT b.idBimestre, b.descricao, m.idMateria
             FROM Bimestres b
             JOIN Materias m ON b.idMateria = m.idMateria
             WHERE m.idTurma = ?
