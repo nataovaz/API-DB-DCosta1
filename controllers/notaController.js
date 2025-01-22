@@ -130,6 +130,8 @@ exports.updateNota = async (req, res) => {
 exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
   
+    console.log('Recebido no endpoint:', { idTurma, idBimestre });
+  
     try {
       const [rows] = await db.query(`
         SELECT AVG(nba.nota) AS mediaNota
@@ -139,7 +141,7 @@ exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
         WHERE a.idTurma = ? AND ba.idBimestre = ? AND nba.nota IS NOT NULL
       `, [idTurma, idBimestre]);
   
-      console.log('Resultado da consulta:', rows);
+      console.log('Resultado da consulta SQL:', rows);
   
       if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
         return res.status(404).json({ error: 'Nenhuma média encontrada para a turma e bimestre especificados.' });

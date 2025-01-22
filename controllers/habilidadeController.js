@@ -131,6 +131,8 @@ exports.getHabilidadesByAluno = async (req, res) => {
 exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
   
+    console.log('Recebido no endpoint:', { idTurma, idBimestre });
+  
     try {
       const [rows] = await db.query(`
         SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
@@ -143,7 +145,7 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
         ORDER BY total DESC
       `, [idTurma, idBimestre]);
   
-      console.log('Resultado da consulta:', rows);
+      console.log('Resultado da consulta SQL:', rows);
   
       if (rows.length === 0) {
         return res.status(404).json({ message: 'Nenhuma estatística de habilidades encontrada.' });
@@ -161,6 +163,7 @@ exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
       });
     }
   };
+  
   
 
 
