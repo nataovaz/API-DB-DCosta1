@@ -56,19 +56,23 @@ exports.getBimestresByMateria = async (req, res) => {
 exports.getBimestresByTurma = async (req, res) => {
     const { idTurma } = req.params;
     try {
-      const [rows] = await db.query(`
-        SELECT idBimestre, descricao
-        FROM Bimestres
-        WHERE idTurma = ?
-      `, [idTurma]);
-  
-      if (rows.length === 0) {
-        return res.status(404).json({ error: 'Nenhum bimestre encontrado para esta turma.' });
-      }
-  
-      res.status(200).json(rows);
+        const [rows] = await db.query(`
+            SELECT 
+                b.idBimestre, 
+                b.descricao 
+            FROM Bimestres b
+            JOIN Materias m ON b.idMateria = m.idMateria
+            WHERE m.idTurma = ?
+        `, [idTurma]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Nenhum bimestre encontrado para esta turma.' });
+        }
+
+        res.status(200).json(rows);
     } catch (error) {
-      console.error('Erro ao buscar bimestres:', error);
-      res.status(500).json({ error: 'Erro ao buscar bimestres', details: error.message });
+        console.error('Erro ao buscar bimestres:', error);
+        res.status(500).json({ error: 'Erro ao buscar bimestres', details: error.message });
     }
-  };
+};
+
