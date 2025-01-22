@@ -129,29 +129,38 @@ exports.updateNota = async (req, res) => {
  */
 exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
-  
+
     try {
-      const [rows] = await db.query(
-        `
-        SELECT AVG(nba.nota) AS mediaNota
-        FROM Notas_Bimestre_Aluno nba
-        JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
-        JOIN Alunos a ON ba.idAluno = a.idAluno
-        WHERE a.idTurma = ? AND ba.idBimestre = ? AND nba.nota IS NOT NULL
-        `,
-        [idTurma, idBimestre]
-      );
-  
-      if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
-        return res.status(404).json({ error: 'Nenhuma média encontrada' });
-      }
-  
-      res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
+        console.log('Buscando média de notas para Turma:', idTurma, 'Bimestre:', idBimestre);
+
+        const [rows] = await db.query(
+            `
+            SELECT AVG(nba.nota) AS mediaNota
+            FROM Notas_Bimestre_Aluno nba
+            JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            WHERE a.idTurma = ? AND ba.idBimestre = ? AND nba.nota IS NOT NULL
+            `,
+            [idTurma, idBimestre]
+        );
+
+        if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
+            console.warn(`Nenhuma média encontrada para Turma ${idTurma}, Bimestre ${idBimestre}.`);
+            return res.status(404).json({ error: 'Nenhuma média encontrada' });
+        }
+
+        const mediaNota = parseFloat(rows[0].mediaNota).toFixed(2);
+        console.log('Média de notas encontrada:', mediaNota);
+
+        res.status(200).json({ mediaNota });
     } catch (error) {
-      console.error('Erro ao buscar média:', error);
-      res.status(500).json({ error: 'Erro interno', details: error.message });
+        console.error('Erro ao buscar média de notas:', error);
+        res.status(500).json({
+            error: 'Erro interno ao buscar média de notas',
+            details: error.message,
+        });
     }
-  };
+};
   
 /**
  * Buscar o total de alunos com notas em uma turma e bimestre.

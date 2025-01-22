@@ -129,45 +129,44 @@ exports.getHabilidadesByAluno = async (req, res) => {
  * Se você não quiser filtrar por matéria, remova `AND h.idMateria = ?` e o parâmetro idMateria.
  */
 exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre, idMateria } = req.params;
+    const { idTurma, idBimestre } = req.params;
 
     try {
-        let query = `
+        console.log('Buscando estatísticas de habilidades para Turma:', idTurma, 'Bimestre:', idBimestre);
+
+        const [rows] = await db.query(
+            `
             SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
-              FROM DesempenhoHabilidades dh
-              JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-              JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-              JOIN Alunos a ON ba.idAluno = a.idAluno
-             WHERE a.idTurma = ?
-               AND ba.idBimestre = ?
-        `;
-        let params = [idTurma, idBimestre];
+            FROM DesempenhoHabilidades dh
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            WHERE a.idTurma = ? AND ba.idBimestre = ?
+            GROUP BY h.nome
+            ORDER BY total DESC
+            `,
+            [idTurma, idBimestre]
+        );
 
-        if (idMateria) {
-            query += ' AND h.idMateria = ?';
-            params.push(idMateria);
+        if (!rows || rows.length === 0) {
+            console.warn(`Nenhuma habilidade encontrada para Turma ${idTurma}, Bimestre ${idBimestre}.`);
+            return res.status(404).json({ message: 'Nenhuma habilidade encontrada' });
         }
 
-        query += `
-          GROUP BY h.nome
-          ORDER BY total DESC
-        `;
+        const maisAcertada = rows[0]?.habilidade || 'N/A';
+        const menosAcertada = rows[rows.length - 1]?.habilidade || 'N/A';
 
-        const [rows] = await db.query(query, params);
-
-        if (!rows.length) {
-            return res.status(404).json({ message: 'Nenhuma habilidade encontrada para os critérios fornecidos.' });
-        }
-
-        const maisAcertada = rows[0].habilidade || 'N/A';
-        const menosAcertada = rows[rows.length - 1].habilidade || 'N/A';
+        console.log('Estatísticas de habilidades encontradas:', {
+            maisAcertada,
+            menosAcertada,
+        });
 
         res.status(200).json({ maisAcertada, menosAcertada });
     } catch (error) {
         console.error('Erro ao buscar estatísticas de habilidades:', error);
-        res.status(500).json({ 
-            error: 'Erro interno ao buscar estatísticas de habilidades', 
-            details: error.message 
+        res.status(500).json({
+            error: 'Erro interno ao buscar estatísticas de habilidades',
+            details: error.message,
         });
     }
 };
