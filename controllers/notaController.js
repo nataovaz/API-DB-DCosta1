@@ -129,39 +129,30 @@ exports.updateNota = async (req, res) => {
  */
 exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
-
+  
     try {
-        const [rows] = await db.query(`
-            SELECT AVG(nba.nota) AS mediaNota
-              FROM Bimestre_Alunos ba
-              JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-              JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-              JOIN Materias m ON b.idMateria = m.idMateria
-              JOIN Alunos a ON ba.idAluno = a.idAluno
-             WHERE m.idTurma = ?
-               AND b.idBimestre = ?
-               AND nba.nota IS NOT NULL
-        `, [idTurma, idBimestre]);
-
-        if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
-            return res.status(404).json({ 
-                error: 'Nenhuma média encontrada para os critérios fornecidos.' 
-            });
-        }
-
-        const mediaNota = parseFloat(rows[0].mediaNota) || 0;
-
-        res.status(200).json({
-            mediaNota: mediaNota.toFixed(2),
-        });
+      const [rows] = await db.query(
+        `
+        SELECT AVG(nba.nota) AS mediaNota
+        FROM Notas_Bimestre_Aluno nba
+        JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
+        JOIN Alunos a ON ba.idAluno = a.idAluno
+        WHERE a.idTurma = ? AND ba.idBimestre = ? AND nba.nota IS NOT NULL
+        `,
+        [idTurma, idBimestre]
+      );
+  
+      if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
+        return res.status(404).json({ error: 'Nenhuma média encontrada' });
+      }
+  
+      res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
     } catch (error) {
-        console.error('Erro ao calcular média da turma:', error);
-        res.status(500).json({
-            error: 'Erro interno ao calcular a média da turma',
-            details: error.message,
-        });
+      console.error('Erro ao buscar média:', error);
+      res.status(500).json({ error: 'Erro interno', details: error.message });
     }
-};
+  };
+  
 /**
  * Buscar o total de alunos com notas em uma turma e bimestre.
  */
