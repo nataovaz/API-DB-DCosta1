@@ -6,11 +6,13 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Configurar CORS
 app.use(cors({
-    origin: '*',  // Permite qualquer origem (você pode especificar um domínio específico se necessário)
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],  // Permite esses métodos
-    allowedHeaders: ['Content-Type', 'Authorization'],  // Permite esses cabeçalhos
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(bodyParser.json());
 
 // Importar rotas
@@ -21,20 +23,21 @@ const habilidadeRoutes = require('../routes/habilidade');
 const notaRoutes = require('../routes/nota');
 const materiaRoutes = require('../routes/materia');
 
-
-
-// Usar rotas
+// Registrar as rotas
+// Exemplo: GET /api/habilidade => chama as rotas definidas em habilidadeRoutes
 app.use('/api/professores', professorRoutes);
 app.use('/api/turmas', turmaRoutes);
 app.use('/api/alunos', alunoRoutes);
-app.use('/api/habilidades', habilidadeRoutes);
+app.use('/api/habilidade', habilidadeRoutes);
 app.use('/api/notas', notaRoutes);
-app.use('/api/materias', materiaRoutes);  // Adicione esta linha
+app.use('/api/materias', materiaRoutes);
 
-app.listen(PORT, () => {
-    console.log(`Servidor rodando na porta ${PORT}`);
+// Rota de teste
+app.get('/test', (req, res) => {
+  res.send('API is working!');
 });
 
-app.get('/test', (req, res) => {
-    res.send('API is working!');
+// Iniciar servidor
+app.listen(PORT, () => {
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
