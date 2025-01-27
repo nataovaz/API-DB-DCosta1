@@ -9,7 +9,9 @@ const pool = mysql.createPool({
     port: process.env.DB_PORT || 34764,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    connectTimeout: 20000,  // 20 segundos de timeout
+    acquireTimeout: 20000  // 20 segundos de timeout para aquisição de conexão
 });
 
 const promisePool = pool.promise();
