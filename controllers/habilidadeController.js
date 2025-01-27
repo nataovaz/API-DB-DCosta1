@@ -125,45 +125,39 @@ exports.getHabilidadesByAluno = async (req, res) => {
 };
 
 /**
- * Estatísticas de habilidades mais/menos acertadas por turma, bimestre e matéria.
- * Se você não quiser filtrar por matéria, remova `AND h.idMateria = ?` e o parâmetro idMateria.
+ * Estatísticas de habilidades mais/menos acertadas por turma, bimestre e tipoAvaliacao.
  */
-exports.getHabilidadesStatsByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
-  
-    console.log('Recebido no endpoint:', { idTurma, idBimestre });
-  
+exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
+    const { idTurma, idBimestre, tipoAvaliacao } = req.params;
+
     try {
-      const [rows] = await db.query(`
-        SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
-        FROM DesempenhoHabilidades dh
-        JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-        JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-        JOIN Alunos a ON ba.idAluno = a.idAluno
-        WHERE a.idTurma = ? AND ba.idBimestre = ?
-        GROUP BY h.nome
-        ORDER BY total DESC
-      `, [idTurma, idBimestre]);
-  
-      console.log('Resultado da consulta SQL:', rows);
-  
-      if (rows.length === 0) {
-        return res.status(404).json({ message: 'Nenhuma estatística de habilidades encontrada.' });
-      }
-  
-      res.status(200).json({
-        maisAcertada: rows[0].habilidade || 'N/A',
-        menosAcertada: rows[rows.length - 1].habilidade || 'N/A',
-      });
+        const [rows] = await db.query(`
+            SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
+            FROM DesempenhoHabilidades dh
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.tipoAvaliacao = ?
+            GROUP BY h.nome
+            ORDER BY total DESC
+        `, [idTurma, idBimestre, tipoAvaliacao]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Nenhuma estatística encontrada.' });
+        }
+
+        res.status(200).json({
+            maisAcertada: rows[0]?.habilidade || 'N/A',
+            menosAcertada: rows[rows.length - 1]?.habilidade || 'N/A',
+        });
     } catch (error) {
-      console.error('Erro ao buscar estatísticas de habilidades:', error);
-      res.status(500).json({
-        error: 'Erro interno ao buscar estatísticas de habilidades',
-        details: error.message,
-      });
+        console.error('Erro ao buscar estatísticas de habilidades:', error);
+        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
     }
-  };
-  
+};
   
 
 
@@ -232,65 +226,67 @@ exports.getHabilidadesStatsByAlunoAndBimestre = async (req, res) => {
 };
 
 /**
- * Top 5 erros (habilidades menos dominadas) por turma e bimestre.
- * Aqui o "ORDER BY total ASC" significa as que têm menos acertos (então seriam "mais erradas").
+ * Top 5 habilidades mais acertadas por turma, bimestre e tipoAvaliacao.
  */
-exports.getTop5ErrosByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+exports.getTop5HabilidadesByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
+    const { idTurma, idBimestre, tipoAvaliacao } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT h.nome, COUNT(dh.idHabilidade) AS total
-              FROM DesempenhoHabilidades dh
-              JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-              JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-             WHERE ba.idBimestre = ?
-               AND ba.idAluno IN (
-                   SELECT idAluno FROM Alunos WHERE idTurma = ?
-               )
-          GROUP BY h.nome
-          ORDER BY total ASC
-          LIMIT 5
-        `, [idBimestre, idTurma]);
+            SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
+            FROM DesempenhoHabilidades dh
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.tipoAvaliacao = ?
+            GROUP BY h.nome
+            ORDER BY total DESC
+            LIMIT 5
+        `, [idTurma, idBimestre, tipoAvaliacao]);
 
-        res.status(200).json({ chartData: rows });
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Nenhum dado disponível para o top 5 habilidades.' });
+        }
+
+        res.status(200).json(rows);
     } catch (error) {
-        console.error('Erro ao buscar top 5 erros:', error);
-        res.status(500).json({ error: 'Erro ao buscar top 5 erros', details: error });
+        console.error('Erro ao buscar top 5 habilidades:', error);
+        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
     }
 };
 
 /**
- * Top 5 habilidades mais acertadas por turma e bimestre (ORDER BY total DESC).
+ * Top 5 erros (habilidades menos acertadas) por turma, bimestre e tipoAvaliacao.
  */
-exports.getTop5HabilidadesByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+exports.getTop5ErrosByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
+    const { idTurma, idBimestre, tipoAvaliacao } = req.params;
 
     try {
         const [rows] = await db.query(`
-            SELECT h.nome, COUNT(dh.idHabilidade) AS total
-              FROM DesempenhoHabilidades dh
-              JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-              JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-             WHERE ba.idBimestre = ?
-               AND ba.idAluno IN (
-                   SELECT idAluno FROM Alunos WHERE idTurma = ?
-               )
-          GROUP BY h.nome
-          ORDER BY total DESC
-          LIMIT 5
-        `, [idBimestre, idTurma]);
+            SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
+            FROM DesempenhoHabilidades dh
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.tipoAvaliacao = ?
+            GROUP BY h.nome
+            ORDER BY total ASC
+            LIMIT 5
+        `, [idTurma, idBimestre, tipoAvaliacao]);
 
-        if (!rows.length) {
-            return res.status(404).json({ message: 'Nenhum dado disponível para o top 5 habilidades.' });
+        if (rows.length === 0) {
+            return res.status(404).json({ message: 'Nenhum dado disponível para os top 5 erros.' });
         }
 
-        res.status(200).json({ chartData: rows });
+        res.status(200).json(rows);
     } catch (error) {
-        console.error('Erro ao buscar top 5 habilidades:', error);
-        res.status(500).json({ 
-            error: 'Erro interno ao buscar top 5 habilidades', 
-            details: error.message 
-        });
+        console.error('Erro ao buscar top 5 erros:', error);
+        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
     }
 };

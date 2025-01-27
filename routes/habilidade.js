@@ -18,19 +18,23 @@ router.delete('/:idHabilidade', habilidadeController.deleteHabilidade);
 // Listar todas as habilidades
 router.get('/', habilidadeController.getHabilidades);
 
-// Estatísticas de habilidades (mais/menos acertadas) — VERSÃO COM 3 PARÂMETROS
-// Ex: /api/habilidade/stats/31/1/27
-router.get('/stats/:idTurma/:idBimestre/:idMateria', habilidadeController.getHabilidadesStatsByTurmaAndBimestre);
-
-// Estatísticas de habilidades sem "idMateria" — VERSÃO COM 2 PARÂMETROS
-// Ex: /api/habilidade/stats/31/1
-router.get('/stats/:idTurma/:idBimestre', habilidadeController.getHabilidadesStatsByTurmaAndBimestre);
+// Estatísticas de habilidades por turma, bimestre e tipoAvaliacao
+router.get(
+    '/stats/:idTurma/:idBimestre/:tipoAvaliacao',
+    habilidadeController.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao
+);
 
 // Top 5 habilidades mais acertadas
-router.get('/top5/:idTurma/:idBimestre', habilidadeController.getTop5HabilidadesByTurmaAndBimestre);
+router.get(
+    '/top5/:idTurma/:idBimestre/:tipoAvaliacao',
+    habilidadeController.getTop5HabilidadesByTurmaBimestreAndTipoAvaliacao
+);
 
-// Top 5 erros (habilidades menos dominadas)
-router.get('/top5erros/:idTurma/:idBimestre', habilidadeController.getTop5ErrosByTurmaAndBimestre);
+// Top 5 erros (habilidades menos acertadas)
+router.get(
+    '/top5erros/:idTurma/:idBimestre/:tipoAvaliacao',
+    habilidadeController.getTop5ErrosByTurmaBimestreAndTipoAvaliacao
+);
 
 // Estatísticas de habilidades por aluno e bimestre
 router.get('/habilidadesalunos/:idTurma/:idBimestre', habilidadeController.getHabilidadesStatsByAlunoAndBimestre);
