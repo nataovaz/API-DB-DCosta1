@@ -1,4 +1,3 @@
-// routes/habilidade.js
 const express = require('express');
 const router = express.Router();
 const habilidadeController = require('../controllers/habilidadeController');

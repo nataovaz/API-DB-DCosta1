@@ -147,8 +147,8 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
             [idTurma, idBimestre, tipoAvaliacao]
         );
 
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'Nenhuma estatística de habilidades encontrada.' });
+        if (!rows.length) {
+            return res.status(404).json({ message: 'Nenhuma estatística encontrada para os critérios fornecidos.' });
         }
 
         res.status(200).json({
@@ -157,12 +157,10 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
         });
     } catch (error) {
         console.error('Erro ao buscar estatísticas de habilidades:', error);
-        res.status(500).json({
-            error: 'Erro interno ao buscar estatísticas de habilidades',
-            details: error.message,
-        });
+        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
     }
 };
+
 
   
   
