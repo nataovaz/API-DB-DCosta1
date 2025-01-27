@@ -124,35 +124,103 @@ exports.updateNota = async (req, res) => {
     }
 };
 
+// /**
+//  * Buscar média de notas por turma e bimestre.
+//  */
+// exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
+//     const { idTurma, idBimestre } = req.params;
+  
+//     console.log('Recebido no endpoint:', { idTurma, idBimestre });
+  
+//     try {
+//       const [rows] = await db.query(`
+//         SELECT AVG(nba.nota) AS mediaNota
+//         FROM Notas_Bimestre_Aluno nba
+//         JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
+//         JOIN Alunos a ON ba.idAluno = a.idAluno
+//         WHERE a.idTurma = ? AND ba.idBimestre = ? AND nba.nota IS NOT NULL
+//       `, [idTurma, idBimestre]);
+  
+//       console.log('Resultado da consulta SQL:', rows);
+  
+//       if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
+//         return res.status(404).json({ error: 'Nenhuma média encontrada para a turma e bimestre especificados.' });
+//       }
+  
+//       res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
+//     } catch (error) {
+//       console.error('Erro ao buscar média:', error);
+//       res.status(500).json({ error: 'Erro interno', details: error.message });
+//     }
+//   };
+
+
 /**
- * Buscar média de notas por turma e bimestre.
+ * Buscar média de notas do tipo avaliação (tipoAvaliacao = 0)
+ * para uma turma e bimestre.
  */
-exports.getMediaNotasByTurmaAndBimestre = async (req, res) => {
+exports.getMediaAvaliacaoByTurmaAndBimestre = async (req, res) => {
     const { idTurma, idBimestre } = req.params;
-  
-    console.log('Recebido no endpoint:', { idTurma, idBimestre });
-  
+
     try {
-      const [rows] = await db.query(`
-        SELECT AVG(nba.nota) AS mediaNota
-        FROM Notas_Bimestre_Aluno nba
-        JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
-        JOIN Alunos a ON ba.idAluno = a.idAluno
-        WHERE a.idTurma = ? AND ba.idBimestre = ? AND nba.nota IS NOT NULL
-      `, [idTurma, idBimestre]);
-  
-      console.log('Resultado da consulta SQL:', rows);
-  
-      if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
-        return res.status(404).json({ error: 'Nenhuma média encontrada para a turma e bimestre especificados.' });
-      }
-  
-      res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
+        const [rows] = await db.query(`
+            SELECT AVG(nba.nota) AS mediaNota
+            FROM Notas_Bimestre_Aluno nba
+            JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.tipoAvaliacao = 0
+              AND nba.nota IS NOT NULL
+        `, [idTurma, idBimestre]);
+
+        if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
+            return res.status(404).json({ error: 'Nenhuma média encontrada para a turma e bimestre especificados.' });
+        }
+
+        res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
     } catch (error) {
-      console.error('Erro ao buscar média:', error);
-      res.status(500).json({ error: 'Erro interno', details: error.message });
+        console.error('Erro ao buscar média de avaliação:', error);
+        res.status(500).json({
+            error: 'Erro ao buscar média de avaliação',
+            details: error.message,
+        });
     }
-  };
+};
+
+/**
+ * Buscar média de notas do tipo doutorzão (tipoAvaliacao = 1)
+ * para uma turma e bimestre.
+ */
+exports.getMediaDoutorzaoByTurmaAndBimestre = async (req, res) => {
+    const { idTurma, idBimestre } = req.params;
+
+    try {
+        const [rows] = await db.query(`
+            SELECT AVG(nba.nota) AS mediaNota
+            FROM Notas_Bimestre_Aluno nba
+            JOIN Bimestre_Alunos ba ON nba.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.tipoAvaliacao = 1
+              AND nba.nota IS NOT NULL
+        `, [idTurma, idBimestre]);
+
+        if (!rows || rows.length === 0 || rows[0].mediaNota === null) {
+            return res.status(404).json({ error: 'Nenhuma média encontrada para a turma e bimestre especificados.' });
+        }
+
+        res.status(200).json({ mediaNota: parseFloat(rows[0].mediaNota).toFixed(2) });
+    } catch (error) {
+        console.error('Erro ao buscar média de doutorzão:', error);
+        res.status(500).json({
+            error: 'Erro ao buscar média de doutorzão',
+            details: error.message,
+        });
+    }
+};
+
   
 
   
@@ -440,6 +508,92 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
         res.status(500).json({ 
             error: 'Erro ao buscar notas por turma e bimestre', 
             details: error.message 
+        });
+    }
+};
+
+
+/**
+ * Buscar notas de cada aluno para avaliação (tipoAvaliacao = 0)
+ * por turma, bimestre e matéria.
+ */
+exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
+    const { idTurma, idBimestre, idMateria } = req.params;
+
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.nome AS nomeAluno,
+                nba.nota,
+                b.descricao AS nomeBimestre,
+                m.nomeMateria AS nomeMateria,
+                nba.tipoAvaliacao
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            JOIN Materias m ON b.idMateria = m.idMateria
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND m.idMateria = ?
+              AND nba.tipoAvaliacao = 0
+        `, [idTurma, idBimestre, idMateria]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                error: 'Nenhuma nota encontrada para o tipo avaliação (tipoAvaliacao = 0).'
+            });
+        }
+
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar notas de avaliação:', error);
+        res.status(500).json({
+            error: 'Erro ao buscar notas de avaliação',
+            details: error.message,
+        });
+    }
+};
+
+
+/**
+ * Buscar notas de cada aluno para doutorzão (tipoAvaliacao = 1)
+ * por turma, bimestre e matéria.
+ */
+exports.getNotasDoutorzaoByTurmaBimestreMateria = async (req, res) => {
+    const { idTurma, idBimestre, idMateria } = req.params;
+
+    try {
+        const [rows] = await db.query(`
+            SELECT 
+                a.nome AS nomeAluno,
+                nba.nota,
+                b.descricao AS nomeBimestre,
+                m.nomeMateria AS nomeMateria,
+                nba.tipoAvaliacao
+            FROM Alunos a
+            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            JOIN Materias m ON b.idMateria = m.idMateria
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND m.idMateria = ?
+              AND nba.tipoAvaliacao = 1
+        `, [idTurma, idBimestre, idMateria]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                error: 'Nenhuma nota encontrada para o tipo doutorzão (tipoAvaliacao = 1).'
+            });
+        }
+
+        res.status(200).json(rows);
+    } catch (error) {
+        console.error('Erro ao buscar notas de doutorzão:', error);
+        res.status(500).json({
+            error: 'Erro ao buscar notas de doutorzão',
+            details: error.message,
         });
     }
 };

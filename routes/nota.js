@@ -10,8 +10,12 @@ router.post('/:idAluno/:idBimestre', notaController.createNota);
 // Atualiza a nota para um aluno em um bimestre específico
 router.put('/:idAluno/:idBimestre', notaController.updateNota);
 
-// Buscar média de notas por turma e bimestre
-router.get('/media/:idTurma/:idBimestre', notaController.getMediaNotasByTurmaAndBimestre);
+// Média das notas do tipo avaliação por turma e bimestre
+router.get('/media/avaliacao/:idTurma/:idBimestre', notaController.getMediaAvaliacaoByTurmaAndBimestre);
+
+// Média das notas do tipo doutorzão por turma e bimestre
+router.get('/media/doutorzao/:idTurma/:idBimestre', notaController.getMediaDoutorzaoByTurmaAndBimestre);
+
 
 // Buscar total de notas por turma e bimestre
 router.get('/total/:idTurma/:idBimestre', notaController.getTotalNotasByTurmaAndBimestre);
@@ -33,6 +37,13 @@ router.get('/aluno/:idAluno/:idBimestre/:idTurma', notaController.getNotasByAlun
 
 // Buscar todas as notas de uma turma/bimestre/matéria
 router.get('/:idTurma/:idBimestre/:idMateria', notaController.getNotasByTurmaAndBimestre);
+
+
+// Buscar notas de alunos para avaliação (tipoAvaliacao = 0)
+router.get('/avaliacao/:idTurma/:idBimestre/:idMateria', notaController.getNotasAvaliacaoByTurmaBimestreMateria);
+
+// Buscar notas de alunos para doutorzão (tipoAvaliacao = 1)
+router.get('/doutorzao/:idTurma/:idBimestre/:idMateria', notaController.getNotasDoutorzaoByTurmaBimestreMateria);
 
 
 
