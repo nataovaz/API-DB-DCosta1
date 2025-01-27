@@ -521,9 +521,8 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
 
     try {
-        console.log('Parâmetros recebidos:', { idTurma, idBimestre, idMateria });
+        console.log('Parâmetros recebidos pela API:', { idTurma, idBimestre, idMateria });
 
-        // Consulta ajustada para garantir alinhamento com os dados do banco
         const [rows] = await db.query(`
             SELECT 
                 a.nome AS nomeAluno,
@@ -542,14 +541,14 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
               AND nba.tipoAvaliacao = 0
         `, [idTurma, idBimestre, idMateria]);
 
-        // Caso nenhum dado seja encontrado
+        console.log('Resultados retornados pela consulta:', rows);
+
         if (rows.length === 0) {
             return res.status(404).json({
                 error: 'Nenhuma nota encontrada para o tipo avaliação (tipoAvaliacao = 0).'
             });
         }
 
-        // Retorna os dados encontrados
         res.status(200).json(rows);
     } catch (error) {
         console.error('Erro ao buscar notas de avaliação:', error);
@@ -559,7 +558,6 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
         });
     }
 };
-
 
 
 /**
