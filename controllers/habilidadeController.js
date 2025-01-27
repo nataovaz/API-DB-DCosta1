@@ -146,7 +146,10 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
         `, [idTurma, idBimestre, tipoAvaliacao]);
 
         if (rows.length === 0) {
-            return res.status(404).json({ message: 'Nenhuma estatística encontrada.' });
+            return res.status(404).json({
+                maisAcertada: 'N/A',
+                menosAcertada: 'N/A',
+            });
         }
 
         res.status(200).json({
@@ -155,7 +158,10 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
         });
     } catch (error) {
         console.error('Erro ao buscar estatísticas de habilidades:', error);
-        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
+        res.status(500).json({
+            error: 'Erro interno no servidor',
+            details: error.message,
+        });
     }
 };
   
@@ -247,14 +253,13 @@ exports.getTop5HabilidadesByTurmaBimestreAndTipoAvaliacao = async (req, res) => 
             LIMIT 5
         `, [idTurma, idBimestre, tipoAvaliacao]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'Nenhum dado disponível para o top 5 habilidades.' });
-        }
-
         res.status(200).json(rows);
     } catch (error) {
         console.error('Erro ao buscar top 5 habilidades:', error);
-        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
+        res.status(500).json({
+            error: 'Erro interno no servidor',
+            details: error.message,
+        });
     }
 };
 
@@ -280,13 +285,12 @@ exports.getTop5ErrosByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
             LIMIT 5
         `, [idTurma, idBimestre, tipoAvaliacao]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({ message: 'Nenhum dado disponível para os top 5 erros.' });
-        }
-
         res.status(200).json(rows);
     } catch (error) {
         console.error('Erro ao buscar top 5 erros:', error);
-        res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
+        res.status(500).json({
+            error: 'Erro interno no servidor',
+            details: error.message,
+        });
     }
 };

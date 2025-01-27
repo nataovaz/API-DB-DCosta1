@@ -18,12 +18,11 @@ router.delete('/:idHabilidade', habilidadeController.deleteHabilidade);
 // Listar todas as habilidades
 router.get('/', habilidadeController.getHabilidades);
 
-// Exemplo de rota no backend para "/habilidade/stats/:idTurma/:idBimestre/:tipoAvaliacao"
+// Estatísticas de habilidades por turma, bimestre e tipoAvaliacao
 router.get(
     '/stats/:idTurma/:idBimestre/:tipoAvaliacao',
     habilidadeController.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao
-  );
-  
+);
 
 // Top 5 habilidades mais acertadas
 router.get(
@@ -31,7 +30,7 @@ router.get(
     habilidadeController.getTop5HabilidadesByTurmaBimestreAndTipoAvaliacao
 );
 
-// Top 5 erros (habilidades menos acertadas)
+// Top 5 habilidades menos acertadas
 router.get(
     '/top5erros/:idTurma/:idBimestre/:tipoAvaliacao',
     habilidadeController.getTop5ErrosByTurmaBimestreAndTipoAvaliacao
