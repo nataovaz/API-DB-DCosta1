@@ -173,7 +173,7 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
  * Estatísticas de habilidades por aluno e bimestre, considerando a turma.
  */
 exports.getHabilidadesStatsByAlunoAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+    const { idTurma, idBimestre, tipoAvaliacao } = req.params;
 
     try {
         const [results] = await db.query(`
@@ -181,45 +181,47 @@ exports.getHabilidadesStatsByAlunoAndBimestre = async (req, res) => {
                 a.nome AS alunoNome,
                 h.nome AS habilidadeNome,
                 COUNT(dh.idHabilidade) AS totalAcertos
-              FROM DesempenhoHabilidades dh
-              JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-              JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-              JOIN Alunos a ON ba.idAluno = a.idAluno
-             WHERE a.idTurma = ?
-               AND ba.idBimestre = ?
-          GROUP BY a.idAluno, h.idHabilidade
-          ORDER BY a.idAluno, totalAcertos DESC
-        `, [idTurma, idBimestre]);
+            FROM DesempenhoHabilidades dh
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE a.idTurma = ?
+              AND ba.idBimestre = ?
+              AND nba.tipoAvaliacao = ?
+            GROUP BY a.idAluno, h.idHabilidade
+            ORDER BY a.idAluno, totalAcertos DESC
+        `, [idTurma, idBimestre, tipoAvaliacao]);
 
         if (!results.length) {
             return res.status(404).json({
-                message: 'Nenhum dado de habilidades para os critérios fornecidos.'
+                message: 'Nenhum dado de habilidades para os critérios fornecidos.',
             });
         }
 
         // Agrupar por aluno
         const alunos = {};
-        results.forEach(row => {
+        results.forEach((row) => {
             if (!alunos[row.alunoNome]) {
                 alunos[row.alunoNome] = {
                     nome: row.alunoNome,
-                    habilidades: []
+                    habilidades: [],
                 };
             }
             alunos[row.alunoNome].habilidades.push({
                 nome: row.habilidadeNome,
-                acertos: row.totalAcertos
+                acertos: row.totalAcertos,
             });
         });
 
-        // Para cada aluno, a maisAcertada é a primeira e a menosAcertada é a última
-        const alunosResponse = Object.values(alunos).map(aluno => {
+        // Formatar resposta
+        const alunosResponse = Object.values(alunos).map((aluno) => {
             const maisAcertada = aluno.habilidades[0];
             const menosAcertada = aluno.habilidades[aluno.habilidades.length - 1];
             return {
                 nome: aluno.nome,
                 maisAcertada: maisAcertada ? maisAcertada.nome : 'N/A',
-                menosAcertada: menosAcertada ? menosAcertada.nome : 'N/A'
+                menosAcertada: menosAcertada ? menosAcertada.nome : 'N/A',
             };
         });
 
@@ -228,10 +230,11 @@ exports.getHabilidadesStatsByAlunoAndBimestre = async (req, res) => {
         console.error('Erro ao buscar habilidades por aluno e bimestre:', error);
         res.status(500).json({
             error: 'Erro ao buscar habilidades por aluno e bimestre',
-            details: error
+            details: error.message,
         });
     }
 };
+
 
 /**
  * Top 5 erros (habilidades menos dominadas) por turma e bimestre.
