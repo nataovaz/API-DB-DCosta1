@@ -517,16 +517,13 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
  * Buscar notas de cada aluno para avaliação (tipoAvaliacao = 0)
  * por turma, bimestre e matéria.
  */
-/**
- * Buscar notas de cada aluno para avaliação (tipoAvaliacao = 0)
- * por turma, bimestre e matéria.
- */
 exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
 
     try {
         console.log('Parâmetros recebidos:', { idTurma, idBimestre, idMateria });
-        
+
+        // Consulta ajustada para garantir alinhamento com os dados do banco
         const [rows] = await db.query(`
             SELECT 
                 a.nome AS nomeAluno,
@@ -535,22 +532,24 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
                 m.nomeMateria AS nomeMateria,
                 nba.tipoAvaliacao
             FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            JOIN Materias m ON m.idTurma = a.idTurma AND b.idMateria = m.idMateria
+            INNER JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
+            INNER JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            INNER JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            INNER JOIN Materias m ON m.idMateria = b.idMateria
             WHERE a.idTurma = ?
               AND ba.idBimestre = ?
               AND m.idMateria = ?
               AND nba.tipoAvaliacao = 0
         `, [idTurma, idBimestre, idMateria]);
 
+        // Caso nenhum dado seja encontrado
         if (rows.length === 0) {
             return res.status(404).json({
                 error: 'Nenhuma nota encontrada para o tipo avaliação (tipoAvaliacao = 0).'
             });
         }
 
+        // Retorna os dados encontrados
         res.status(200).json(rows);
     } catch (error) {
         console.error('Erro ao buscar notas de avaliação:', error);
@@ -560,6 +559,7 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
         });
     }
 };
+
 
 
 /**
