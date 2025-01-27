@@ -523,7 +523,7 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
     try {
         console.log('Parâmetros recebidos pela API:', { idTurma, idBimestre, idMateria });
 
-        const [rows] = await db.query(`
+        const query = `
             SELECT 
                 a.nome AS nomeAluno,
                 nba.nota,
@@ -531,15 +531,21 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
                 m.nomeMateria AS nomeMateria,
                 nba.tipoAvaliacao
             FROM Alunos a
-            INNER JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            INNER JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            INNER JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            INNER JOIN Materias m ON m.idMateria = b.idMateria
+            INNER JOIN Bimestre_Alunos ba 
+                ON a.idAluno = ba.idAluno
+            INNER JOIN Notas_Bimestre_Aluno nba 
+                ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            INNER JOIN Bimestres b 
+                ON ba.idBimestre = b.idBimestre
+            INNER JOIN Materias m 
+                ON b.idMateria = m.idMateria AND m.idTurma = a.idTurma
             WHERE a.idTurma = ?
               AND ba.idBimestre = ?
               AND m.idMateria = ?
-              AND nba.tipoAvaliacao = 0
-        `, [idTurma, idBimestre, idMateria]);
+              AND nba.tipoAvaliacao = 0;
+        `;
+
+        const [rows] = await db.query(query, [idTurma, idBimestre, idMateria]);
 
         console.log('Resultados retornados pela consulta:', rows);
 
@@ -558,6 +564,7 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
         });
     }
 };
+
 
 
 /**
