@@ -18,10 +18,6 @@ router.delete('/:idHabilidade', habilidadeController.deleteHabilidade);
 // Listar todas as habilidades
 router.get('/', habilidadeController.getHabilidades);
 
-// Estatísticas de habilidades (mais/menos acertadas) — VERSÃO COM 3 PARÂMETROS
-// Ex: /api/habilidade/stats/31/1/27
-router.get('/stats/:idTurma/:idBimestre/:idMateria', habilidadeController.getHabilidadesStatsByTurmaAndBimestre);
-
 // Estatísticas de habilidades sem "idMateria" — VERSÃO COM 2 PARÂMETROS
 // Ex: /api/habilidade/stats/31/1
 router.get('/stats/:idTurma/:idBimestre/:tipoAvaliacao', habilidadeController.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao);
