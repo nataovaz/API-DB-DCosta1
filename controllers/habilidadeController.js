@@ -128,27 +128,24 @@ exports.getHabilidadesByAluno = async (req, res) => {
  */
 exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
     const { idTurma, idBimestre, tipoAvaliacao } = req.params;
-
     try {
         const [rows] = await db.query(
-            `
-            SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
-            FROM DesempenhoHabilidades dh
-            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-            JOIN Alunos a ON ba.idAluno = a.idAluno
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            WHERE a.idTurma = ?
-              AND ba.idBimestre = ?
-              AND nba.tipoAvaliacao = ?
-            GROUP BY h.nome
-            ORDER BY total DESC
-            `,
+            `SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
+             FROM DesempenhoHabilidades dh
+             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+             JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+             JOIN Alunos a ON ba.idAluno = a.idAluno
+             JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+             WHERE a.idTurma = ?
+               AND ba.idBimestre = ?
+               AND nba.tipoAvaliacao = ?
+             GROUP BY h.nome
+             ORDER BY total DESC`,
             [idTurma, idBimestre, tipoAvaliacao]
         );
 
         if (!rows.length) {
-            return res.status(404).json({ message: 'Nenhuma estatística encontrada para os critérios fornecidos.' });
+            return res.status(404).json({ message: 'Nenhuma estatística encontrada.' });
         }
 
         res.status(200).json({
@@ -156,7 +153,7 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
             menosAcertada: rows[rows.length - 1]?.habilidade || 'N/A',
         });
     } catch (error) {
-        console.error('Erro ao buscar estatísticas de habilidades:', error);
+        console.error('Erro ao buscar estatísticas:', error);
         res.status(500).json({ error: 'Erro interno no servidor', details: error.message });
     }
 };
