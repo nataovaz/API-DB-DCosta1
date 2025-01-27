@@ -521,6 +521,7 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
     const { idTurma, idBimestre, idMateria } = req.params;
 
     try {
+        console.log('Parâmetros recebidos:', { idTurma, idBimestre, idMateria });
         const [rows] = await db.query(`
             SELECT 
                 a.nome AS nomeAluno,
@@ -534,9 +535,9 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
             JOIN Bimestres b ON ba.idBimestre = b.idBimestre
             JOIN Materias m ON b.idMateria = m.idMateria
             WHERE a.idTurma = ?
-              AND ba.idBimestre = ?
-              AND m.idMateria = ?
-              AND nba.tipoAvaliacao = 0
+            AND ba.idBimestre = ?
+            AND m.idMateria = ?
+            AND nba.tipoAvaliacao = 0
         `, [idTurma, idBimestre, idMateria]);
 
         if (rows.length === 0) {
