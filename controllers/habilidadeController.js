@@ -129,10 +129,9 @@ exports.getHabilidadesByAluno = async (req, res) => {
 exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
     const { idTurma, idBimestre, tipoAvaliacao } = req.params;
 
-    console.log('Recebido no endpoint:', { idTurma, idBimestre, tipoAvaliacao });
-
     try {
-        const [rows] = await db.query(`
+        const [rows] = await db.query(
+            `
             SELECT h.nome AS habilidade, COUNT(dh.idHabilidade) AS total
             FROM DesempenhoHabilidades dh
             JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
@@ -144,17 +143,17 @@ exports.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao = async (req, res) =>
               AND nba.tipoAvaliacao = ?
             GROUP BY h.nome
             ORDER BY total DESC
-        `, [idTurma, idBimestre, tipoAvaliacao]);
-
-        console.log('Resultado da consulta SQL:', rows);
+            `,
+            [idTurma, idBimestre, tipoAvaliacao]
+        );
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Nenhuma estatística de habilidades encontrada.' });
         }
 
         res.status(200).json({
-            maisAcertada: rows[0].habilidade || 'N/A',
-            menosAcertada: rows[rows.length - 1].habilidade || 'N/A',
+            maisAcertada: rows[0]?.habilidade || 'N/A',
+            menosAcertada: rows[rows.length - 1]?.habilidade || 'N/A',
         });
     } catch (error) {
         console.error('Erro ao buscar estatísticas de habilidades:', error);
@@ -265,37 +264,40 @@ exports.getTop5ErrosByTurmaAndBimestre = async (req, res) => {
     }
 };
 
-/**
- * Top 5 habilidades mais acertadas por turma e bimestre (ORDER BY total DESC).
- */
-exports.getTop5HabilidadesByTurmaAndBimestre = async (req, res) => {
-    const { idTurma, idBimestre } = req.params;
+exports.getTop5HabilidadesByTurmaBimestreAndTipoAvaliacao = async (req, res) => {
+    const { idTurma, idBimestre, tipoAvaliacao } = req.params;
 
     try {
-        const [rows] = await db.query(`
+        const [rows] = await db.query(
+            `
             SELECT h.nome, COUNT(dh.idHabilidade) AS total
-              FROM DesempenhoHabilidades dh
-              JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-              JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-             WHERE ba.idBimestre = ?
-               AND ba.idAluno IN (
-                   SELECT idAluno FROM Alunos WHERE idTurma = ?
-               )
-          GROUP BY h.nome
-          ORDER BY total DESC
-          LIMIT 5
-        `, [idBimestre, idTurma]);
+            FROM DesempenhoHabilidades dh
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            WHERE ba.idBimestre = ?
+              AND nba.tipoAvaliacao = ?
+              AND ba.idAluno IN (
+                  SELECT idAluno FROM Alunos WHERE idTurma = ?
+              )
+            GROUP BY h.nome
+            ORDER BY total DESC
+            LIMIT 5
+            `,
+            [idBimestre, tipoAvaliacao, idTurma]
+        );
 
-        if (!rows.length) {
+        if (rows.length === 0) {
             return res.status(404).json({ message: 'Nenhum dado disponível para o top 5 habilidades.' });
         }
 
         res.status(200).json({ chartData: rows });
     } catch (error) {
         console.error('Erro ao buscar top 5 habilidades:', error);
-        res.status(500).json({ 
-            error: 'Erro interno ao buscar top 5 habilidades', 
-            details: error.message 
+        res.status(500).json({
+            error: 'Erro interno ao buscar top 5 habilidades',
+            details: error.message,
         });
     }
 };
+
