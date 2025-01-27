@@ -17,11 +17,8 @@ router.delete('/:idHabilidade', habilidadeController.deleteHabilidade);
 // Listar todas as habilidades
 router.get('/', habilidadeController.getHabilidades);
 
-// Estatísticas de habilidades por turma, bimestre e tipo de avaliação
-router.get(
-    '/stats/:idTurma/:idBimestre/:tipoAvaliacao',
-    habilidadeController.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao
-);
+router.get('/stats/:idTurma/:idBimestre/:tipoAvaliacao', habilidadeController.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao);
+
 
 // Top 5 habilidades mais acertadas
 router.get(
