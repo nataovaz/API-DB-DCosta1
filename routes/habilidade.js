@@ -24,15 +24,10 @@ router.get('/stats/:idTurma/:idBimestre/:idMateria', habilidadeController.getHab
 
 // Estatísticas de habilidades sem "idMateria" — VERSÃO COM 2 PARÂMETROS
 // Ex: /api/habilidade/stats/31/1
-router.get('/stats/:idTurma/:idBimestre', habilidadeController.getHabilidadesStatsByTurmaAndBimestre);
+router.get('/stats/:idTurma/:idBimestre/:tipoAvaliacao', habilidadeController.getHabilidadesStatsByTurmaBimestreAndTipoAvaliacao);
+router.get('/top5/:idTurma/:idBimestre/:tipoAvaliacao', habilidadeController.getTop5HabilidadesByTurmaBimestreAndTipoAvaliacao);
+router.get('/top5erros/:idTurma/:idBimestre/:tipoAvaliacao', habilidadeController.getTop5ErrosByTurmaBimestreAndTipoAvaliacao);
+router.get('/alunos/:idTurma/:idBimestre/:tipoAvaliacao', habilidadeController.getHabilidadesStatsByAlunoBimestreAndTipoAvaliacao);
 
-// Top 5 habilidades mais acertadas
-router.get('/top5/:idTurma/:idBimestre', habilidadeController.getTop5HabilidadesByTurmaAndBimestre);
-
-// Top 5 erros (habilidades menos dominadas)
-router.get('/top5erros/:idTurma/:idBimestre', habilidadeController.getTop5ErrosByTurmaAndBimestre);
-
-// Estatísticas de habilidades por aluno e bimestre
-router.get('/habilidadesalunos/:idTurma/:idBimestre', habilidadeController.getHabilidadesStatsByAlunoAndBimestre);
 
 module.exports = router;
