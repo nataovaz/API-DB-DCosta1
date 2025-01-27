@@ -536,7 +536,7 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
             JOIN Materias m ON b.idMateria = m.idMateria
             WHERE a.idTurma = ?
             AND ba.idBimestre = ?
-            AND m.idMateria = ?
+            AND b.idMateria = ?  -- Filtro pelo idMateria do bimestre
             AND nba.tipoAvaliacao = 0
         `, [idTurma, idBimestre, idMateria]);
 
