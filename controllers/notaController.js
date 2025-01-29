@@ -481,18 +481,25 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
     console.log('Parâmetros recebidos:', { idTurma, idBimestre, idMateria });
 
     try {
-        const [rows] = await db.query(`
+        const query = `
             SELECT 
+                a.idAluno,
                 a.nome AS nomeAluno,
-                nba.nota
+                COALESCE(nba.nota, 'Sem nota') AS nota
             FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            WHERE ba.idBimestre = ?
-            AND a.idTurma = ?
-            AND b.idMateria = ?;
-        `, [idBimestre, idTurma, idMateria]);
+            LEFT JOIN Bimestre_Alunos ba 
+                ON a.idAluno = ba.idAluno 
+                AND ba.idBimestre = ?
+            LEFT JOIN Notas_Bimestre_Aluno nba 
+                ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
+            LEFT JOIN Bimestres b 
+                ON b.idBimestre = ba.idBimestre
+            WHERE a.idTurma = ?
+            AND b.idMateria = ?
+            ORDER BY a.nome;
+        `;
+
+        const [rows] = await db.query(query, [idBimestre, idTurma, idMateria]);
 
         console.log('Resultado da consulta:', rows);
 
@@ -511,6 +518,7 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
         });
     }
 };
+
 
 
 /**
