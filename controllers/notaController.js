@@ -184,51 +184,15 @@ exports.updateNotaTipoAvaliacao = async (req, res) => {
     }
 };
 
+
 exports.getNotasDoutorzaoByTurmaBimestreMateria = async (req, res) => {
-    const { idTurma, idBimestre, idMateria } = req.params;
-
-    console.log("Parâmetros recebidos:", { idTurma, idBimestre, idMateria });
-
-    try {
-        const query = `
-            SELECT a.nome AS nomeAluno, n.nota 
-            FROM Notas_Bimestre_Aluno n
-            JOIN Bimestre_Alunos ba ON n.idBimestre_Aluno = ba.idBimestre_Aluno
-            JOIN Alunos a ON ba.idAluno = a.idAluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            JOIN Materias m ON b.idMateria = m.idMateria
-            WHERE ba.idBimestre = ?
-            AND m.idMateria = ?
-            AND a.idTurma = ?
-            AND n.tipoAvaliacao = 1
-        `;
-
-        console.log("Query executada:", query);
-        console.log("Parâmetros da query:", [idBimestre, idMateria, idTurma]);
-
-        const [notas] = await db.query(query, [idBimestre, idMateria, idTurma]);
-
-        console.log("Resultado da consulta antes de verificar:", notas);
-
-        // Confirma se os dados existem
-        if (!notas || notas.length === 0) {
-            return res.status(404).json({ error: 'Nenhuma nota encontrada para o aluno, matéria, bimestre e turma especificados' });
-        }
-
-        // Converte os nomes corretamente
-        const resultadoCorrigido = notas.map(row => ({
-            nomeAluno: row.nomeAluno || row.nome, // Garante que 'nomeAluno' seja o campo correto
-            nota: row.nota
-        }));
-
-        console.log("Resultado final enviado:", resultadoCorrigido);
-
-        res.status(200).json(resultadoCorrigido);
-    } catch (err) {
-        console.error('Erro ao buscar notas do Doutorzão:', err);
-        res.status(500).json({ error: 'Erro ao buscar notas do Doutorzão' });
-    }
-};
+    console.log("Parâmetros recebidos:", req.params);
+    return res.json([
+      { nomeAluno: "Teste1", nota: 10 },
+      { nomeAluno: "Teste2", nota: 5 }
+    ]);
+  };
+  
 
 
 
