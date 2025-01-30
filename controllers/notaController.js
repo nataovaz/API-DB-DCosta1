@@ -124,6 +124,114 @@ exports.updateNota = async (req, res) => {
     }
 };
 
+
+exports.updateNotaTipoAvaliacao = async (req, res) => {
+    const { idAluno, idBimestre, tipoAvaliacao } = req.params;
+    const { nota } = req.body;
+
+    if (nota === undefined || isNaN(parseFloat(nota))) {
+        return res.status(400).json({
+            error: 'O campo "nota" é obrigatório e deve ser um número válido'
+        });
+    }
+
+    if (![0, 1].includes(Number(tipoAvaliacao))) {
+        return res.status(400).json({
+            error: 'O campo "tipoAvaliacao" deve ser 0 ou 1'
+        });
+    }
+
+    try {
+        // 1) Localiza Bimestre_Alunos
+        const [baRows] = await db.query(
+            `SELECT idBimestre_Aluno 
+               FROM Bimestre_Alunos
+              WHERE idAluno = ?
+                AND idBimestre = ?`, 
+            [idAluno, idBimestre]
+        );
+
+        if (baRows.length === 0) {
+            return res.status(404).json({
+                error: 'Não existe registro de Bimestre_Alunos para esse aluno e bimestre'
+            });
+        }
+
+        const idBimestre_Aluno = baRows[0].idBimestre_Aluno;
+
+        // 2) Atualiza Notas_Bimestre_Aluno para o tipo específico
+        const [updateResult] = await db.query(
+            `UPDATE Notas_Bimestre_Aluno
+                SET nota = ?
+              WHERE idBimestre_Aluno = ?
+                AND tipoAvaliacao = ?`, 
+            [nota, idBimestre_Aluno, tipoAvaliacao]
+        );
+
+        if (updateResult.affectedRows === 0) {
+            return res.status(404).json({
+                error: 'Nenhuma nota existente para atualizar neste bimestre e tipo de avaliação'
+            });
+        }
+
+        res.status(200).json({ message: 'Nota atualizada com sucesso' });
+    } catch (err) {
+        console.error('Erro ao atualizar nota:', err);
+        res.status(500).json({ 
+            error: 'Erro ao atualizar nota', 
+            details: err 
+        });
+    }
+};
+
+exports.getNotasDoutorzaoByTurmaBimestreMateria = async (req, res) => {
+    const { idTurma, idBimestre, idMateria } = req.params;
+
+    console.log("Parâmetros recebidos:", { idTurma, idBimestre, idMateria });
+
+    try {
+        const query = `
+            SELECT a.nome AS nomeAluno, n.nota 
+            FROM Notas_Bimestre_Aluno n
+            JOIN Bimestre_Alunos ba ON n.idBimestre_Aluno = ba.idBimestre_Aluno
+            JOIN Alunos a ON ba.idAluno = a.idAluno
+            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+            JOIN Materias m ON b.idMateria = m.idMateria
+            WHERE ba.idBimestre = ?
+            AND m.idMateria = ?
+            AND a.idTurma = ?
+            AND n.tipoAvaliacao = 1
+        `;
+
+        console.log("Query executada:", query);
+        console.log("Parâmetros da query:", [idBimestre, idMateria, idTurma]);
+
+        const [notas] = await db.query(query, [idBimestre, idMateria, idTurma]);
+
+        console.log("Resultado da consulta antes de verificar:", notas);
+
+        // Confirma se os dados existem
+        if (!notas || notas.length === 0) {
+            return res.status(404).json({ error: 'Nenhuma nota encontrada para o aluno, matéria, bimestre e turma especificados' });
+        }
+
+        // Converte os nomes corretamente
+        const resultadoCorrigido = notas.map(row => ({
+            nomeAluno: row.nomeAluno || row.nome, // Garante que 'nomeAluno' seja o campo correto
+            nota: row.nota
+        }));
+
+        console.log("Resultado final enviado:", resultadoCorrigido);
+
+        res.status(200).json(resultadoCorrigido);
+    } catch (err) {
+        console.error('Erro ao buscar notas do Doutorzão:', err);
+        res.status(500).json({ error: 'Erro ao buscar notas do Doutorzão' });
+    }
+};
+
+
+
 // /**
 //  * Buscar média de notas por turma e bimestre.
 //  */
@@ -359,15 +467,21 @@ exports.getNotaByAlunoAndMateria = async (req, res) => {
 };
 
 /**
- * Criar ou atualizar nota de um aluno para (idBimestre, idMateria, idTurma).
+ * Criar ou atualizar nota de um aluno para (idBimestre, idMateria, idTurma) considerando o tipo de avaliação.
  */
 exports.createOrUpdateNota = async (req, res) => {
-    const { idAluno, idMateria, idBimestre, idTurma } = req.params;
+    const { idAluno, idMateria, idBimestre, idTurma, tipoAvaliacao } = req.params;
     const { nota } = req.body;
 
     if (nota === undefined || isNaN(parseFloat(nota))) {
         return res.status(400).json({
             error: 'O campo "nota" é obrigatório e deve ser um número válido'
+        });
+    }
+
+    if (![0, 1].includes(Number(tipoAvaliacao))) {
+        return res.status(400).json({
+            error: 'O campo "tipoAvaliacao" deve ser 0 ou 1'
         });
     }
 
@@ -403,28 +517,30 @@ exports.createOrUpdateNota = async (req, res) => {
             idBimestre_Aluno = resultBA.insertId;
         }
 
-        // Verifica se já existe nota
+        // Verifica se já existe uma nota para este tipo de avaliação
         const [existingNota] = await db.query(`
             SELECT idNotas
-              FROM Notas_Bimestre_Aluno
+              FROM Nota_Bimestre_Aluno
              WHERE idBimestre_Aluno = ?
-        `, [idBimestre_Aluno]);
+               AND tipoAvaliacao = ?
+        `, [idBimestre_Aluno, tipoAvaliacao]);
 
         if (existingNota.length > 0) {
-            // Atualiza
+            // Atualiza a nota existente
             await db.query(`
                 UPDATE Notas_Bimestre_Aluno
                    SET nota = ?
                  WHERE idBimestre_Aluno = ?
-            `, [nota, idBimestre_Aluno]);
+                   AND tipoAvaliacao = ?
+            `, [nota, idBimestre_Aluno, tipoAvaliacao]);
 
-            return res.status(201).json({ message: 'Nota criada com sucesso' });
+            return res.status(200).json({ message: 'Nota atualizada com sucesso' });
         } else {
-            // Insere
+            // Insere uma nova nota
             await db.query(`
                 INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
-                VALUES (?, 0, ?)
-            `, [idBimestre_Aluno, nota]);
+                VALUES (?, ?, ?)
+            `, [idBimestre_Aluno, tipoAvaliacao, nota]);
 
             return res.status(201).json({ message: 'Nota criada com sucesso' });
         }
@@ -436,6 +552,7 @@ exports.createOrUpdateNota = async (req, res) => {
         });
     }
 };
+
 
 /**
  * Buscar todas as notas de um aluno em uma turma e bimestre específicos.
@@ -481,7 +598,7 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
     console.log('Parâmetros recebidos:', { idTurma, idBimestre, idMateria });
 
     try {
-        const query = `
+        const [rows] = await db.query(`
             SELECT 
                 a.idAluno,
                 a.nome AS nomeAluno,
@@ -492,32 +609,26 @@ exports.getNotasByTurmaAndBimestre = async (req, res) => {
                 AND ba.idBimestre = ?
             LEFT JOIN Notas_Bimestre_Aluno nba 
                 ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            LEFT JOIN Bimestres b 
-                ON b.idBimestre = ba.idBimestre
+                AND nba.tipoAvaliacao = 0 -- Apenas notas de avaliação
             WHERE a.idTurma = ?
-            AND b.idMateria = ?
             ORDER BY a.nome;
-        `;
-
-        const [rows] = await db.query(query, [idBimestre, idTurma, idMateria]);
+        `, [idBimestre, idTurma]);
 
         console.log('Resultado da consulta:', rows);
 
         if (rows.length === 0) {
-            return res.status(404).json({ 
-                error: 'Nenhuma nota encontrada para os critérios fornecidos.' 
-            });
+            return res.status(404).json({ error: 'Nenhuma nota encontrada para os critérios fornecidos.' });
         }
 
         res.status(200).json(rows);
     } catch (error) {
-        console.error('Erro ao buscar notas por turma e bimestre:', error);
-        res.status(500).json({ 
-            error: 'Erro ao buscar notas por turma e bimestre', 
-            details: error.message 
-        });
+        console.error('Erro ao buscar notas:', error);
+        res.status(500).json({ error: 'Erro ao buscar notas', details: error.message });
     }
 };
+
+
+
 
 
 
@@ -575,46 +686,10 @@ exports.getNotasAvaliacaoByTurmaBimestreMateria = async (req, res) => {
 
 
 
-/**
- * Buscar notas de cada aluno para doutorzão (tipoAvaliacao = 1)
- * por turma, bimestre e matéria.
- */
-exports.getNotasDoutorzaoByTurmaBimestreMateria = async (req, res) => {
-    const { idTurma, idBimestre, idMateria } = req.params;
 
-    try {
-        const [rows] = await db.query(`
-            SELECT 
-                a.nome AS nomeAluno,
-                nba.nota,
-                b.descricao AS nomeBimestre,
-                m.nomeMateria AS nomeMateria,
-                nba.tipoAvaliacao
-            FROM Alunos a
-            JOIN Bimestre_Alunos ba ON a.idAluno = ba.idAluno
-            JOIN Notas_Bimestre_Aluno nba ON ba.idBimestre_Aluno = nba.idBimestre_Aluno
-            JOIN Bimestres b ON ba.idBimestre = b.idBimestre
-            JOIN Materias m ON b.idMateria = m.idMateria
-            WHERE a.idTurma = ?
-              AND ba.idBimestre = ?
-              AND m.idMateria = ?
-              AND nba.tipoAvaliacao = 1
-        `, [idTurma, idBimestre, idMateria]);
 
-        if (rows.length === 0) {
-            return res.status(404).json({
-                error: 'Nenhuma nota encontrada para o tipo doutorzão (tipoAvaliacao = 1).'
-            });
-        }
 
-        res.status(200).json(rows);
-    } catch (error) {
-        console.error('Erro ao buscar notas de doutorzão:', error);
-        res.status(500).json({
-            error: 'Erro ao buscar notas de doutorzão',
-            details: error.message,
-        });
-    }
-};
+
+
 
 

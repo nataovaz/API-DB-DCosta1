@@ -7,8 +7,6 @@ const notaController = require('../controllers/notaController');
 // Buscar notas de alunos para avaliação (tipoAvaliacao = 0)
 router.get('/avaliacao/:idTurma/:idBimestre/:idMateria', notaController.getNotasAvaliacaoByTurmaBimestreMateria);
 
-// Buscar notas de alunos para doutorzão (tipoAvaliacao = 1)
-router.get('/doutorzao/:idTurma/:idBimestre/:idMateria', notaController.getNotasDoutorzaoByTurmaBimestreMateria);
 
 // Média das notas do tipo avaliação por turma e bimestre
 router.get('/media/avaliacao/:idTurma/:idBimestre', notaController.getMediaAvaliacaoByTurmaAndBimestre);
@@ -26,15 +24,24 @@ router.get('/chartdata/:idTurma/:idBimestre', notaController.getChartDataByTurma
 router.get('/aluno/:idAluno/:idBimestre/:idTurma', notaController.getNotasByAluno);
 router.get('/:idAluno/:idMateria/:idBimestre/:idTurma', notaController.getNotaByAlunoAndMateria);
 
-// Criar ou atualizar nota de um aluno (que inclui idMateria e idTurma)
-router.post('/:idAluno/:idMateria/:idBimestre/:idTurma', notaController.createOrUpdateNota);
+// Criar ou atualizar nota considerando tipoAvaliacao
+router.post('/:idAluno/:idMateria/:idBimestre/:idTurma/:tipoAvaliacao', notaController.createOrUpdateNota);
+
 
 // Rotas genéricas
 router.post('/:idAluno/:idBimestre', notaController.createNota);
 router.put('/:idAluno/:idBimestre', notaController.updateNota);
 
+
+// **Atualizações separadas por tipo de avaliação**
+router.put('/:idAluno/:idBimestre/:tipoAvaliacao', notaController.updateNotaTipoAvaliacao);
+
+
 // Buscar todas as notas de uma turma/bimestre/matéria
-router.get('/:idTurma/:idBimestre/:idMateria', notaController.getNotasByTurmaAndBimestre);
+router.get('/turma/:idTurma/bimestre/:idBimestre/materia/:idMateria', notaController.getNotasByTurmaAndBimestre);
+router.get('/doutorzao/:idTurma/:idBimestre/:idMateria', notaController.getNotasDoutorzaoByTurmaBimestreMateria);
+
+
 
 // Buscar todas as notas de um aluno (SEM filtrar bimestre)
 router.get('/:idAluno', notaController.getNotasByAluno);
