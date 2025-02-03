@@ -186,13 +186,47 @@ exports.updateNotaTipoAvaliacao = async (req, res) => {
 
 
 exports.getNotasDoutorzaoByTurmaBimestreMateria = async (req, res) => {
-    console.log("Parâmetros recebidos:", req.params);
-    return res.json([
-      { nomeAluno: "Teste1", nota: 10 },
-      { nomeAluno: "Teste2", nota: 5 }
-    ]);
+    try {
+      const { idTurma, idBimestre, idMateria } = req.params;
+      console.log('Parâmetros recebidos (doutorzao):', { idTurma, idBimestre, idMateria });
+  
+      // Exemplo real de query:
+      const query = `
+        SELECT a.nome AS nomeAluno, n.nota
+        FROM Notas_Bimestre_Aluno n
+        JOIN Bimestre_Alunos ba ON n.idBimestre_Aluno = ba.idBimestre_Aluno
+        JOIN Alunos a ON ba.idAluno = a.idAluno
+        JOIN Bimestres b ON ba.idBimestre = b.idBimestre
+        JOIN Materias m ON b.idMateria = m.idMateria
+        WHERE ba.idBimestre = ?
+          AND m.idMateria = ?
+          AND a.idTurma = ?
+          AND n.tipoAvaliacao = 1
+      `;
+      const [rows] = await db.query(query, [idBimestre, idMateria, idTurma]);
+  
+      console.log('Resultado da consulta (doutorzao):', rows);
+  
+      if (!rows || rows.length === 0) {
+        return res
+          .status(404)
+          .json({ error: 'Nenhuma nota encontrada para o aluno, matéria, bimestre e turma (tipoAvaliacao=1)' });
+      }
+  
+      return res.status(200).json(rows);
+    } catch (error) {
+      console.error('Erro ao buscar notas doutorzão:', error);
+      return res.status(500).json({
+        error: 'Erro interno ao buscar notas doutorzão',
+        details: error.message,
+      });
+    }
   };
   
+  // Opcional: rota de teste
+  exports.testRoute = (req, res) => {
+    res.json({ msg: 'Rota de teste funciona!' });
+  };
 
 
 
@@ -416,7 +450,7 @@ exports.getNotaByAlunoAndMateria = async (req, res) => {
 
         if (rows.length === 0) {
             return res.status(404).json({ 
-                error: 'Nenhuma nota encontrada para o aluno, matéria, bimestre e turma especificados' 
+                error: 'Nenhuma nota encontrada pa11111ra o aluno, matéria, bimestre e turma especificados' 
             });
         }
 
@@ -484,7 +518,7 @@ exports.createOrUpdateNota = async (req, res) => {
         // Verifica se já existe uma nota para este tipo de avaliação
         const [existingNota] = await db.query(`
             SELECT idNotas
-              FROM Nota_Bimestre_Aluno
+              FROM Notas_Bimestre_Aluno
              WHERE idBimestre_Aluno = ?
                AND tipoAvaliacao = ?
         `, [idBimestre_Aluno, tipoAvaliacao]);
