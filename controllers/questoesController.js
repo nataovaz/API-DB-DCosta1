@@ -5,123 +5,107 @@ exports.createNotaQuestao = async (req, res) => {
         const { idAluno, idBimestre } = req.params;
         const { notasQuestoes, tipoAvaliacao } = req.body;
 
-        console.log("📌 Iniciando processamento para aluno:", idAluno, "bimestre:", idBimestre);
-        console.log("📌 Recebido payload:", JSON.stringify(notasQuestoes, null, 2));
+        console.log(`📌 Processando notas para o aluno: ${idAluno} | Bimestre: ${idBimestre} | Tipo Avaliação: ${tipoAvaliacao}`);
 
         if (!Array.isArray(notasQuestoes) || notasQuestoes.length === 0) {
             return res.status(400).json({ error: 'É necessário fornecer um array de notas por questão.' });
         }
 
-        if (tipoAvaliacao !== 0 && tipoAvaliacao !== 1) {
-            return res.status(400).json({ error: 'O tipoAvaliacao deve ser 0 (Avaliação) ou 1 (Doutorzão).' });
+        // 🔹 **Busca os `idBimestre_Aluno` válidos**
+        const [bimestreAlunos] = await db.query(`
+            SELECT DISTINCT idBimestre_Aluno FROM Bimestre_Alunos
+            WHERE idAluno = ? AND idBimestre = ?
+        `, [idAluno, idBimestre]);
+
+        if (bimestreAlunos.length === 0) {
+            return res.status(400).json({ error: `Nenhum Bimestre_Aluno encontrado para aluno ${idAluno} e bimestre ${idBimestre}` });
         }
 
-        let notaFinal = 0;
-        let habilidadesInvalidas = [];
-        let habilidadesMap = new Map();
         let bimestreAlunoMap = new Map();
+        bimestreAlunos.forEach(({ idBimestre_Aluno }) => {
+            bimestreAlunoMap.set(idBimestre_Aluno, idBimestre_Aluno);
+        });
 
-        // 🔹 **Verifica se as habilidades existem**
+        console.log("📌 Mapeamento de `idBimestre_Aluno`:", JSON.stringify([...bimestreAlunoMap.values()], null, 2));
+
+        // 🔹 **Inserir ou Atualizar Notas das Questões**
         for (const questao of notasQuestoes) {
-            const { habilidade } = questao;
+            const { numeroQuestao, pesoQuestao, notaQuestao, idBimestre_Aluno } = questao;
 
-            if (habilidade && habilidade.trim() !== "") {
-                if (!habilidadesMap.has(habilidade)) {
-                    console.log(`📌 Verificando existência da habilidade: ${habilidade}`);
-                    const [habilidadeData] = await db.query(`
-                        SELECT idHabilidade FROM Habilidades WHERE nome = ? LIMIT 1
-                    `, [habilidade]);
+            if (!bimestreAlunoMap.has(idBimestre_Aluno)) continue;
 
-                    if (habilidadeData.length === 0) {
-                        habilidadesInvalidas.push(habilidade);
-                    } else {
-                        habilidadesMap.set(habilidade, habilidadeData[0].idHabilidade);
-                    }
-                }
-            }
-        }
+            const notaCalculada = notaQuestao * pesoQuestao;
 
-        if (habilidadesInvalidas.length > 0) {
-            return res.status(400).json({
-                error: 'Habilidades não cadastradas no sistema:',
-                habilidadesNaoEncontradas: habilidadesInvalidas
-            });
-        }
-
-        // 🔹 **Busca ou cria `idBimestre_Aluno` para cada habilidade**
-        for (const [habilidade, idHabilidade] of habilidadesMap.entries()) {
-            console.log(`📌 Buscando idBimestre_Aluno para habilidade ${habilidade}...`);
-            let idBimestre_Aluno = null;
-
-            const [baExisting] = await db.query(`
-                SELECT idBimestre_Aluno FROM Bimestre_Alunos 
-                WHERE idAluno = ? AND idBimestre = ?
-                LIMIT 1
-            `, [idAluno, idBimestre]);
-
-            if (baExisting.length > 0) {
-                idBimestre_Aluno = baExisting[0].idBimestre_Aluno;
-                console.log(`✅ idBimestre_Aluno encontrado: ${idBimestre_Aluno}`);
-            } else {
-                console.log(`🚨 Nenhum idBimestre_Aluno encontrado. Criando novo...`);
-                const [newBaResult] = await db.query(`
-                    INSERT INTO Bimestre_Alunos (idAluno, idBimestre) 
-                    VALUES (?, ?)
-                `, [idAluno, idBimestre]);
-
-                idBimestre_Aluno = newBaResult.insertId;
-                console.log(`✅ Novo idBimestre_Aluno criado: ${idBimestre_Aluno}`);
-            }
-
-            bimestreAlunoMap.set(habilidade, idBimestre_Aluno);
-        }
-
-        console.log("📌 Mapeamento final de idBimestre_Aluno:", bimestreAlunoMap);
-
-        for (const questao of notasQuestoes) {
-            const { numeroQuestao, pesoQuestao, status, habilidade } = questao;
-            const idHabilidade = habilidadesMap.get(habilidade);
-            const idBimestre_Aluno = bimestreAlunoMap.get(habilidade);
-
-            if (!idBimestre_Aluno) {
-                console.error(`❌ ERRO: idBimestre_Aluno não encontrado para ${habilidade}`);
-                continue;
-            }
-
-            console.log(`📌 Processando Questão ${numeroQuestao} - Habilidade: ${habilidade}, idBimestre_Aluno: ${idBimestre_Aluno}`);
-
-            const notaQuestao = (status === "Correto") ? pesoQuestao : 0;
-            notaFinal += notaQuestao;
+            console.log(`🔄 Atualizando questão ${numeroQuestao} com nota ${notaCalculada}`);
 
             await db.query(`
                 INSERT INTO Notas_Questoes (idBimestre_Aluno, numeroQuestao, notaQuestao, pesoQuestao)
                 VALUES (?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE notaQuestao = VALUES(notaQuestao), pesoQuestao = VALUES(pesoQuestao)
-            `, [idBimestre_Aluno, numeroQuestao, notaQuestao, pesoQuestao]);
+                ON DUPLICATE KEY UPDATE 
+                    notaQuestao = VALUES(notaQuestao),
+                    pesoQuestao = VALUES(pesoQuestao)
+            `, [idBimestre_Aluno, numeroQuestao, notaCalculada, pesoQuestao]);
+        }
+
+        console.log("📌 Atualizando a nota final...");
+
+        // 🔹 **Calcular a Nota Final corretamente**
+        let notaFinal = 0;
+        let totalQuestoes = 0;
+
+        for (const idBimestre_Aluno of bimestreAlunoMap.values()) {
+            const [notas] = await db.query(`
+                SELECT SUM(nq.notaQuestao) AS notaTotal, COUNT(nq.numeroQuestao) AS totalQuestoes
+                FROM Notas_Questoes nq
+                WHERE nq.idBimestre_Aluno = ?
+            `, [idBimestre_Aluno]);
+
+            notaFinal += notas[0].notaTotal || 0;
+            totalQuestoes += notas[0].totalQuestoes;
+        }
+
+        // 🔹 **Ajuste para equivalência de 10 questões**
+        if (totalQuestoes === 12) {
+            notaFinal = (notaFinal / 12) * 10;
+            console.log(`📌 Nota final ajustada para 10 questões: ${notaFinal}`);
         }
 
         console.log(`📌 Nota final calculada: ${notaFinal}`);
 
-        await db.query(`
-            INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
-            VALUES (?, ?, ?)
-            ON DUPLICATE KEY UPDATE nota = VALUES(nota)
-        `, [idBimestre_Aluno, tipoAvaliacao, notaFinal]);
+        // 🔹 **Atualizar ou inserir a nota final no banco**
+        const [existingNotaFinal] = await db.query(`
+            SELECT idNotas FROM Notas_Bimestre_Aluno
+            WHERE idBimestre_Aluno = ? AND tipoAvaliacao = ?
+        `, [bimestreAlunos[0].idBimestre_Aluno, tipoAvaliacao]);
+
+        if (existingNotaFinal.length > 0) {
+            await db.query(`
+                UPDATE Notas_Bimestre_Aluno
+                SET nota = ?
+                WHERE idNotas = ?
+            `, [notaFinal, existingNotaFinal[0].idNotas]);
+        } else {
+            await db.query(`
+                INSERT INTO Notas_Bimestre_Aluno (idBimestre_Aluno, tipoAvaliacao, nota)
+                VALUES (?, ?, ?)
+            `, [bimestreAlunos[0].idBimestre_Aluno, tipoAvaliacao, notaFinal]);
+        }
 
         res.status(201).json({
-            message: 'Notas e habilidades inseridas com sucesso.',
+            message: 'Notas e habilidades inseridas ou atualizadas com sucesso.',
+            idBimestreAlunoFinal: bimestreAlunos[0].idBimestre_Aluno,
             notaFinal: notaFinal,
             tipoAvaliacao: tipoAvaliacao
         });
 
     } catch (err) {
-        console.error('❌ ERRO FATAL AO INSERIR NOTAS:', err);
-        res.status(500).json({
-            error: 'Erro ao inserir notas e habilidades',
-            details: err.message
-        });
+        console.error('❌ ERRO:', err);
+        res.status(500).json({ error: 'Erro ao inserir notas e habilidades', details: err.message });
     }
 };
+
+
+
 
 
 /**
@@ -131,29 +115,15 @@ exports.getNotasQuestoesByAluno = async (req, res) => {
     const { idAluno, idBimestre } = req.params;
 
     try {
-        // 🔹 Busca as notas das questões associadas ao bimestre e aluno
+        console.log(`📌 Buscando notas para Aluno: ${idAluno}, Bimestre: ${idBimestre}`);
+
+        // 🔹 **Busca as notas das questões associadas ao bimestre e aluno**
         const [notasQuestoes] = await db.query(`
             SELECT nq.numeroQuestao, nq.notaQuestao, nq.pesoQuestao, ba.idBimestre_Aluno
             FROM Notas_Questoes nq
             JOIN Bimestre_Alunos ba ON nq.idBimestre_Aluno = ba.idBimestre_Aluno
             WHERE ba.idAluno = ? AND ba.idBimestre = ?
-        `, [idAluno, idBimestre]);
-
-        // 🔹 Busca a nota final e o tipo de avaliação
-        const [notaFinalData] = await db.query(`
-            SELECT nb.tipoAvaliacao, nb.nota
-            FROM Notas_Bimestre_Aluno nb
-            JOIN Bimestre_Alunos ba ON nb.idBimestre_Aluno = ba.idBimestre_Aluno
-            WHERE ba.idAluno = ? AND ba.idBimestre = ?
-        `, [idAluno, idBimestre]);
-
-        // 🔹 Busca as habilidades associadas às questões
-        const [habilidades] = await db.query(`
-            SELECT DISTINCT dh.idHabilidade, h.nome, dh.codigo, dh.idBimestre_Aluno
-            FROM DesempenhoHabilidades dh
-            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
-            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
-            WHERE ba.idAluno = ? AND ba.idBimestre = ?
+            ORDER BY nq.numeroQuestao
         `, [idAluno, idBimestre]);
 
         if (notasQuestoes.length === 0) {
@@ -162,10 +132,60 @@ exports.getNotasQuestoesByAluno = async (req, res) => {
             });
         }
 
+        console.log(`✅ Notas encontradas: ${notasQuestoes.length}`);
+
+        // 🔹 **Correção para remover questões duplicadas**
+        const questoesMap = new Map();
+        let totalNotaBruta = 0;
+        let totalQuestoes = 0;
+
+        for (const questao of notasQuestoes) {
+            if (!questoesMap.has(questao.numeroQuestao)) {
+                questoesMap.set(questao.numeroQuestao, questao);
+                totalNotaBruta += questao.notaQuestao * questao.pesoQuestao;
+                totalQuestoes++;
+            } else {
+                console.warn(`⚠ Questão duplicada encontrada: ${questao.numeroQuestao}, removendo.`);
+            }
+        }
+
+        const questoesCorrigidas = Array.from(questoesMap.values());
+
+        // 🔹 **Verifica se há 10 ou 12 questões**
+        if (totalQuestoes !== 10 && totalQuestoes !== 12) {
+            console.warn(`⚠ Número inesperado de questões: ${totalQuestoes}`);
+        }
+
+        // 🔹 **Ajustar a nota final para um total de 10**
+        let notaFinalCorrigida = totalNotaBruta;
+        if (totalQuestoes === 12) {
+            notaFinalCorrigida = (totalNotaBruta / 12) * 10;
+            console.log(`📌 Nota final ajustada para 10 questões: ${notaFinalCorrigida}`);
+        }
+
+        // 🔹 **Busca o tipo de avaliação**
+        const [tipoAvaliacaoData] = await db.query(`
+            SELECT MAX(nb.tipoAvaliacao) AS tipoAvaliacao
+            FROM Notas_Bimestre_Aluno nb
+            JOIN Bimestre_Alunos ba ON nb.idBimestre_Aluno = ba.idBimestre_Aluno
+            WHERE ba.idAluno = ? AND ba.idBimestre = ?
+        `, [idAluno, idBimestre]);
+
+        // 🔹 **Busca as habilidades associadas às questões**
+        const [habilidades] = await db.query(`
+            SELECT DISTINCT dh.idHabilidade, h.nome, dh.codigo, dh.idBimestre_Aluno
+            FROM DesempenhoHabilidades dh
+            JOIN Habilidades h ON dh.idHabilidade = h.idHabilidade
+            JOIN Bimestre_Alunos ba ON dh.idBimestre_Aluno = ba.idBimestre_Aluno
+            WHERE ba.idAluno = ? AND ba.idBimestre = ?
+        `, [idAluno, idBimestre]);
+
+        console.log(`✅ Nota Final calculada e corrigida: ${notaFinalCorrigida}`);
+
         res.status(200).json({
-            notasQuestoes,
-            notaFinal: notaFinalData.length > 0 ? notaFinalData[0].nota : null,
-            tipoAvaliacao: notaFinalData.length > 0 ? notaFinalData[0].tipoAvaliacao : null,
+            notasQuestoes: questoesCorrigidas,
+            notaFinal: parseFloat(notaFinalCorrigida.toFixed(2)),
+            tipoAvaliacao: tipoAvaliacaoData.length > 0 ? tipoAvaliacaoData[0].tipoAvaliacao : null,
             habilidades
         });
 
